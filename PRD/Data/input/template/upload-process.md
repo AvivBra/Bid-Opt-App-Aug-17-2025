@@ -183,8 +183,8 @@ def validate_template_data(sheets: dict) -> dict:
         elif base_bid != 'Ignore':
             try:
                 bid_value = float(base_bid)
-                if bid_value < 0 or bid_value > 999.99:
-                    validation['errors'].append(f"Row {idx+2}: Base Bid must be 0-999.99")
+                if bid_value < 0 or bid_value > 4:
+                    validation['errors'].append(f"Row {idx+2}: Base Bid must be 0-4")
                     validation['is_valid'] = False
             except:
                 validation['errors'].append(f"Row {idx+2}: Invalid Base Bid value")
@@ -193,7 +193,7 @@ def validate_template_data(sheets: dict) -> dict:
     # 4. Check Target CPA (optional)
     invalid_cpa = port_df[
         ~port_df['Target CPA'].isna() & 
-        ((port_df['Target CPA'] < 0) | (port_df['Target CPA'] > 9999.99))
+        ((port_df['Target CPA'] < 0) | (port_df['Target CPA'] > 4))
     ]
     if len(invalid_cpa) > 0:
         validation['warnings'].append(f"{len(invalid_cpa)} rows have invalid Target CPA")
@@ -302,7 +302,7 @@ TEMPLATE_ERROR_MESSAGES = {
     'missing_sheet': "Missing required 'Port Values' sheet",
     'wrong_columns': "Port Values sheet has incorrect columns",
     'duplicate_portfolios': "Duplicate portfolio names found",
-    'invalid_base_bid': "Base Bid must be a number (0-999.99) or 'Ignore'",
+    'invalid_base_bid': "Base Bid must be a number (0-4) or 'Ignore'",
     'all_ignored': "All portfolios are marked as 'Ignore'",
     'empty_template': "Template has no data"
 }

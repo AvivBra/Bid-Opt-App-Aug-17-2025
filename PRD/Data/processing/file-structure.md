@@ -12,8 +12,8 @@
 | עמודה | סוג | חובה | ערכים תקינים |
 |--------|-----|------|---------------|
 | Portfolio Name | String | כן | כל טקסט, ייחודי |
-| Base Bid | Number/String | כן | 0.00-999.99 או "Ignore" |
-| Target CPA | Number | לא | 0.00-9999.99 או ריק |
+| Base Bid | Number/String | כן | 0.00-4 או "Ignore" |
+| Target CPA | Number | לא | 0.00-4 או ריק |
 
 #### דוגמה
 ```
@@ -247,7 +247,7 @@ def validate_template(df):
     # Base Bid validation
     invalid_bids = df[
         (df['Base Bid'] != 'Ignore') & 
-        ((df['Base Bid'] < 0) | (df['Base Bid'] > 999.99))
+        ((df['Base Bid'] < 0) | (df['Base Bid'] > 4))
     ]
     if len(invalid_bids) > 0:
         return "Invalid Base Bid values"

@@ -26,8 +26,8 @@
 • 2 לשוניות חובה: Port Values, Top ASINs
 • 3 עמודות ב-Port Values: Portfolio Name, Base Bid, Target CPA
 • Portfolio Names ייחודיים
-• Base Bid: מספר 0.02-999.99 או "Ignore"
-• Target CPA: מספר 0.01-9999.99 או ריק
+• Base Bid: מספר 0.02-4 או "Ignore"
+• Target CPA: מספר 0.01-4 או ריק
 
 **Bulk Files:**
 • פורמט: Excel (.xlsx) או CSV
@@ -123,8 +123,8 @@
 
 ### מגבלות ערכים
 • Bid: 0.02 עד 1.25 (מחוץ לטווח = ורוד)
-• Base Bid: 0.02 עד 999.99
-• Target CPA: 0.01 עד 9999.99
+• Base Bid: 0.02 עד 4
+• Target CPA: 0.01 עד 4
 • Portfolio Name: עד 255 תווים
 
 ### מגבלות סביבה
