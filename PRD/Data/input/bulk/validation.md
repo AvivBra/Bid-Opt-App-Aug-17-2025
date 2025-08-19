@@ -80,6 +80,8 @@
 ## בדיקות התאמה עם Template
 
 ### Portfolio Names
+- שם העמודה שבה נמצאים שמות הפוטפוליוז בבלק היא
+Portfolio Name (Informational only)
 - **השוואה:** Portfolio Name מ-Bulk מול Template
 - **10 Flat Portfolios:** מותר שיחסרו
 - **אחרים חסרים:** שגיאה

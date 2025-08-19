@@ -132,7 +132,7 @@ class UploadSection:
 
         st.markdown("---")
 
-        # Template status - using direct session state access
+        # Template status
         template_uploaded = st.session_state.get("template_uploaded", False)
         template_info = st.session_state.get("template_info", {})
 
@@ -145,7 +145,7 @@ class UploadSection:
         else:
             st.info("Template: Not uploaded")
 
-        # Bulk 60 status - using direct session state access
+        # Bulk 60 status
         bulk_uploaded = st.session_state.get("bulk_60_uploaded", False)
         bulk_info = st.session_state.get("bulk_60_info", {})
 
@@ -159,6 +159,10 @@ class UploadSection:
 
     def _process_template_upload(self, template_file):
         """Process uploaded template file."""
+
+        # Check if we already processed this file
+        if st.session_state.get("last_processed_template") == template_file.name:
+            return
 
         # Validate file size
         size_valid, size_msg = validate_file_size(template_file, is_template=True)
@@ -191,9 +195,7 @@ class UploadSection:
             if not valid:
                 st.error(f"Validation Error: {validation_msg}")
                 if validation_details.get("issues"):
-                    for issue in validation_details["issues"][
-                        :3
-                    ]:  # Show first 3 issues
+                    for issue in validation_details["issues"][:3]:
                         st.error(f"• {issue}")
                 return
 
@@ -209,6 +211,10 @@ class UploadSection:
                 "ignored_portfolios": validation_details["ignore_count"],
             }
 
+            # Mark this file as processed
+            st.session_state.last_processed_template = template_file.name
+
+            # Show validation message
             st.success(validation_msg)
 
             # Show warnings if any
@@ -216,13 +222,15 @@ class UploadSection:
                 for warning in validation_details["warnings"]:
                     st.warning(f"⚠️ {warning}")
 
-            st.rerun()
-
         except Exception as e:
             st.error(f"Error processing template: {str(e)}")
 
     def _process_bulk_upload(self, bulk_file, file_key: str):
         """Process uploaded bulk file."""
+
+        # Check if we already processed this file
+        if st.session_state.get(f"last_processed_{file_key}") == bulk_file.name:
+            return
 
         # Validate file size
         size_valid, size_msg = validate_file_size(bulk_file, is_template=False)
@@ -268,7 +276,7 @@ class UploadSection:
                         st.error(f"• {issue}")
                 return
 
-            # Store in session state directly (fixing the issue)
+            # Store in session state
             st.session_state[f"{file_key}_data"] = dataframe
             st.session_state[f"{file_key}_uploaded"] = True
             st.session_state[f"{file_key}_info"] = {
@@ -280,16 +288,16 @@ class UploadSection:
                 "column_mapping": validation_details.get("column_mapping", {}),
             }
 
+            # Mark this file as processed
+            st.session_state[f"last_processed_{file_key}"] = bulk_file.name
+
+            # Show validation message
             st.success(validation_msg)
 
             # Show simple warnings if any
             if validation_details.get("warnings"):
-                for warning in validation_details["warnings"][
-                    :2
-                ]:  # Show max 2 warnings
+                for warning in validation_details["warnings"][:2]:
                     st.warning(f"⚠️ {warning}")
-
-            st.rerun()
 
         except Exception as e:
             st.error(f"Error processing bulk file: {str(e)}")

@@ -59,22 +59,32 @@ class PortfolioValidator:
         details["template_portfolios"] = list(template_portfolios)
         details["ignored_portfolios"] = list(ignored_portfolios)
 
-        # Get bulk portfolios
+        # Get bulk portfolios - FIXED: Using exact column name
         bulk_portfolios = set()
-        portfolio_col = None
+        portfolio_col = "Portfolio Name (Informational only)"
 
-        # Find portfolio column in bulk
-        for col in bulk_data.columns:
-            if "portfolio" in col.lower():
-                portfolio_col = col
-                break
-
-        if portfolio_col:
+        # Check if the exact column exists
+        if portfolio_col in bulk_data.columns:
             bulk_portfolios = set(
                 bulk_data[portfolio_col].dropna().astype(str).str.strip().unique()
             )
             bulk_portfolios.discard("nan")
             bulk_portfolios.discard("")
+        else:
+            # Fallback: Try to find column containing "portfolio" (case-insensitive)
+            for col in bulk_data.columns:
+                if "portfolio" in col.lower():
+                    portfolio_col = col
+                    bulk_portfolios = set(
+                        bulk_data[portfolio_col]
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                        .unique()
+                    )
+                    bulk_portfolios.discard("nan")
+                    bulk_portfolios.discard("")
+                    break
 
         details["bulk_portfolios"] = list(bulk_portfolios)
 
@@ -100,7 +110,7 @@ class PortfolioValidator:
 
         # Calculate processing ready count
         active_portfolios = template_portfolios - ignored_portfolios
-        if portfolio_col and active_portfolios:
+        if portfolio_col in bulk_data.columns and active_portfolios:
             processing_ready = bulk_data[
                 bulk_data[portfolio_col].isin(active_portfolios)
             ]
@@ -127,14 +137,17 @@ class PortfolioValidator:
 
     def get_active_portfolios(self, template_data: Dict[str, pd.DataFrame]) -> Set[str]:
         """Get set of active (non-ignored) portfolios."""
-        active_portfolios = set()
 
         if "Port Values" not in template_data:
-            return active_portfolios
+            return set()
 
         port_values = template_data["Port Values"]
+        active_portfolios = set()
 
-        if "Portfolio Name" in port_values.columns:
+        if (
+            "Portfolio Name" in port_values.columns
+            and "Base Bid" in port_values.columns
+        ):
             for idx, row in port_values.iterrows():
                 portfolio = str(row["Portfolio Name"]).strip()
                 base_bid = str(row.get("Base Bid", "")).lower()

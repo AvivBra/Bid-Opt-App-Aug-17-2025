@@ -25,6 +25,8 @@ Apply filters to Targeting sheet:
    - Flat 20, Flat 15
    - Flat 40 | Opt, Flat 20 | Opt, Flat 15 | Opt
 3. Remove rows from portfolios marked as "Ignore" in Template
+- שם העמודה שבה נמצאים שמות הפוטפוליוז בבלק הוא Portfolio Name (Informational only) 
+
 
 ### Step 3: Add Helper Columns
 Add 7 helper columns to the LEFT of Bid column (Targeting sheet only):

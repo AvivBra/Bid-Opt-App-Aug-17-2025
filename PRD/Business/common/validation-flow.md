@@ -37,7 +37,7 @@ def validate_file_structure(self, df, file_type):
     """בדיקה שהקובץ מכיל את העמודות הנדרשות"""
     
     if file_type == 'template':
-        required_columns = ['Portfolio Name', 'Base Bid', 'Target CPA']
+        required_columns = ['Portfolio Name (Informational only)', 'Base Bid', 'Target CPA']
         if list(df.columns) != required_columns:
             raise ValidationError("Template structure invalid")
     
@@ -69,7 +69,7 @@ def clean_data(self, df):
     # Zero Sales מסנן:
     cleaned = df[
         (df['Units'] == 0) &
-        (~df['Portfolio Name'].isin(FLAT_PORTFOLIOS)) &
+        (~df['Portfolio Name (Informational only)'].isin(FLAT_PORTFOLIOS)) &
         (df['Entity'].isin(['Keyword', 'Product Targeting', 'Product Ad', 'Bidding Adjustment']))
     ]
     
@@ -107,7 +107,7 @@ class ZeroSalesOptimization(BaseOptimization):
         """בדיקת התאמה בין portfolios"""
         
         bulk_portfolios = set(bulk_df['Portfolio Name (Informational only)'].unique())
-        template_portfolios = set(template_df['Portfolio Name'].unique())
+        template_portfolios = set(template_df['Portfolio Name (Informational only)'].unique())
         
         # Portfolios שמותר שיחסרו
         allowed_missing = {

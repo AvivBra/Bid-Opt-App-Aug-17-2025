@@ -12,9 +12,9 @@ class BulkValidator:
         self.required_columns = BULK_REQUIRED_COLUMNS
         self.required_sheet = BULK_SHEET_NAME
 
-        # Critical columns for Zero Sales optimization
+        # Critical columns for Zero Sales optimization - FIXED: using exact column name
         self.zero_sales_columns = [
-            "portfolio",
+            "Portfolio Name (Informational only)",  # FIXED: exact column name
             "units",
             "bid",
             "clicks",
@@ -89,138 +89,144 @@ class BulkValidator:
     def _validate_structure(self, df: pd.DataFrame, filename: str) -> Tuple[bool, str]:
         """Validate basic file structure."""
 
+        # Check column count
+        if self.required_columns and len(df.columns) != self.required_columns:
+            return (
+                False,
+                f"Expected {self.required_columns} columns, found {len(df.columns)}",
+            )
+
         # Check row count
         if len(df) > MAX_ROWS:
-            return False, f"Too many rows: {len(df):,} (max: {MAX_ROWS:,})"
+            return False, f"File exceeds {MAX_ROWS:,} rows limit: {len(df):,} rows"
 
-        if len(df) == 0:
-            return False, "File contains no data rows"
+        # Check for Portfolio Name column - FIXED: using exact column name
+        if "Portfolio Name (Informational only)" not in df.columns:
+            # Fallback: look for any column containing "portfolio"
+            portfolio_col_found = False
+            for col in df.columns:
+                if "portfolio" in col.lower():
+                    portfolio_col_found = True
+                    break
 
-        # Check column count (flexible based on file type)
-        col_count = len(df.columns)
+            if not portfolio_col_found:
+                return False, "Portfolio Name (Informational only) column not found"
 
-        if filename.lower().endswith(".xlsx"):
-            # Excel files should have exactly 48 columns
-            if col_count != BULK_REQUIRED_COLUMNS:
-                return (
-                    False,
-                    f"Excel bulk file must have exactly {BULK_REQUIRED_COLUMNS} columns (found: {col_count})",
-                )
-        else:
-            # CSV files are more flexible
-            if col_count < 20:
-                return False, f"Too few columns: {col_count} (expected at least 20)"
-            if col_count > 100:
-                return False, f"Too many columns: {col_count} (expected at most 100)"
-
-        return True, "File structure is valid"
+        return True, "Structure valid"
 
     def _validate_data_content_simple(
         self, df: pd.DataFrame
     ) -> Tuple[bool, str, Dict[str, Any]]:
-        """
-        SIMPLIFIED data content validation - no heavy loops.
-        """
+        """Simple data content validation without heavy loops."""
 
         details = {
-            "empty_rows": 0,
-            "duplicate_rows": 0,
-            "null_percentage": 0.0,
-            "issues": [],
-            "warnings": [],
+            "entity_types": [],
+            "portfolio_count": 0,
+            "campaign_count": 0,
         }
 
-        # Quick check for completely empty rows
-        empty_rows = df.isnull().all(axis=1).sum()
-        details["empty_rows"] = empty_rows
+        try:
+            # Quick checks using vectorized operations
+            if "Entity" in df.columns:
+                details["entity_types"] = df["Entity"].dropna().unique().tolist()[:10]
 
-        if empty_rows > len(df) * 0.5:  # More than 50% empty
-            return False, f"Too many empty rows: {empty_rows}", details
+            # FIXED: using exact column name
+            if "Portfolio Name (Informational only)" in df.columns:
+                details["portfolio_count"] = df[
+                    "Portfolio Name (Informational only)"
+                ].nunique()
+            else:
+                # Fallback: look for any column containing "portfolio"
+                for col in df.columns:
+                    if "portfolio" in col.lower():
+                        details["portfolio_count"] = df[col].nunique()
+                        break
 
-        # Quick check for duplicates (first 1000 rows only for performance)
-        sample_size = min(1000, len(df))
-        duplicate_rows = df.head(sample_size).duplicated().sum()
-        details["duplicate_rows"] = duplicate_rows
+            if "Campaign Name" in df.columns:
+                details["campaign_count"] = df["Campaign Name"].nunique()
 
-        if duplicate_rows > sample_size * 0.3:  # More than 30% duplicates in sample
-            details["warnings"].append(
-                f"Many duplicate rows found in sample: {duplicate_rows}"
-            )
+            # Basic completeness check
+            if details["portfolio_count"] == 0:
+                return False, "No portfolios found in data", details
 
-        # Simple null percentage - just overall, no per-column analysis
-        total_cells = df.size
-        null_cells = df.isnull().sum().sum()
-        null_percentage = (null_cells / total_cells) * 100 if total_cells > 0 else 0
-        details["null_percentage"] = null_percentage
+            return True, "Data content valid", details
 
-        # Amazon bulk files normally have 60-80% nulls, so we allow high percentages
-        if null_percentage > 95:
-            details["warnings"].append(
-                f"Very high null percentage: {null_percentage:.1f}%"
-            )
-
-        return True, "Data content is acceptable", details
+        except Exception as e:
+            return False, f"Data validation error: {str(e)}", details
 
     def _validate_zero_sales_requirements(
         self, df: pd.DataFrame
     ) -> Tuple[bool, str, Dict[str, str]]:
-        """Validate requirements for Zero Sales optimization."""
+        """Check if bulk file has required columns for Zero Sales optimization."""
 
         column_mapping = {}
         missing_columns = []
 
-        # Map critical columns (case-insensitive search)
-        df_cols_lower = {col.lower(): col for col in df.columns}
+        # Map required columns (case-insensitive matching)
+        df_columns_lower = {col.lower(): col for col in df.columns}
 
-        for required_col in self.zero_sales_columns:
-            mapped_col = None
+        # FIXED: Check for exact portfolio column name first
+        if "Portfolio Name (Informational only)" in df.columns:
+            column_mapping["portfolio"] = "Portfolio Name (Informational only)"
+        else:
+            # Fallback: look for column containing "portfolio"
+            for col_lower, col_original in df_columns_lower.items():
+                if "portfolio" in col_lower:
+                    column_mapping["portfolio"] = col_original
+                    break
 
-            # Direct match
-            if required_col in df_cols_lower:
-                mapped_col = df_cols_lower[required_col]
-            else:
-                # Partial match - simplified
-                for col_lower, col_original in df_cols_lower.items():
-                    if required_col in col_lower:
-                        mapped_col = col_original
+        # Map other columns
+        column_requirements = {
+            "units": ["units", "unit"],
+            "bid": ["bid", "max bid"],
+            "clicks": ["clicks", "click"],
+            "campaign": ["campaign", "campaign name"],
+        }
+
+        for req_name, keywords in column_requirements.items():
+            found = False
+            for keyword in keywords:
+                for col_lower, col_original in df_columns_lower.items():
+                    if keyword in col_lower:
+                        column_mapping[req_name] = col_original
+                        found = True
                         break
+                if found:
+                    break
+            if not found:
+                missing_columns.append(req_name)
 
-            if mapped_col:
-                column_mapping[required_col] = mapped_col
-            else:
-                missing_columns.append(required_col)
+        # Check critical columns
+        if "portfolio" not in column_mapping:
+            missing_columns.insert(0, "Portfolio Name (Informational only)")
 
-        # Check only the most critical columns
-        critical_missing = []
-        for critical_col in ["portfolio", "units", "bid"]:
-            if critical_col not in column_mapping:
-                critical_missing.append(critical_col)
-
-        if critical_missing:
+        if missing_columns:
             return (
                 False,
-                f"Missing critical columns: {', '.join(critical_missing)}",
+                f"Missing columns: {', '.join(missing_columns)}",
                 column_mapping,
             )
 
-        return (
-            True,
-            f"Zero Sales requirements met (mapped {len(column_mapping)} columns)",
-            column_mapping,
-        )
+        return True, "All required columns found", column_mapping
 
-    def get_data_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Get basic summary of bulk file data."""
+    def quick_validate_bulk(self, df: pd.DataFrame) -> Tuple[bool, str, Dict[str, Any]]:
+        """Quick validation without detailed analysis."""
 
         if df is None or df.empty:
-            return {"empty": True}
+            return False, "File is empty", {}
 
-        summary = {
-            "empty": False,
+        basic_info = {
             "rows": len(df),
             "columns": len(df.columns),
-            "memory_mb": df.memory_usage(deep=True).sum() / (1024 * 1024),
-            "null_percentage": (df.isnull().sum().sum() / df.size) * 100,
+            "has_portfolio": "Portfolio Name (Informational only)" in df.columns,
+            "has_units": any("unit" in col.lower() for col in df.columns),
         }
 
-        return summary
+        if basic_info["columns"] != self.required_columns:
+            return (
+                False,
+                f"Expected {self.required_columns} columns, found {basic_info['columns']}",
+                basic_info,
+            )
+
+        return True, "Quick validation passed", basic_info

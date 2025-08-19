@@ -1,31 +1,31 @@
-"""Zero Sales optimization validation - SIMPLIFIED."""
+"""Zero Sales optimization validator."""
 
 import pandas as pd
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any
 import logging
 
 
 class ZeroSalesValidator:
-    """Validates data requirements for Zero Sales optimization."""
+    """Validates data for Zero Sales optimization processing."""
 
     def __init__(self):
         self.logger = logging.getLogger("optimization.zero_sales.validator")
 
-        # Required columns for Zero Sales
+        # Required columns for Zero Sales - FIXED: using exact column name
         self.required_columns = {
-            "portfolio": ["portfolio"],
+            "portfolio": ["Portfolio Name (Informational only)", "portfolio"],
             "units": ["units", "unit"],
             "bid": ["bid", "max bid"],
-            "clicks": ["click"],
-            "campaign": ["campaign"],
-            "entity": ["entity"],
+            "clicks": ["clicks", "click"],
+            "campaign": ["campaign", "campaign name", "campaign id"],
+            "entity": ["entity", "entity type"],
         }
 
     def validate(
         self, template_data: Dict[str, pd.DataFrame], bulk_data: pd.DataFrame
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        SIMPLIFIED validation for Zero Sales optimization.
+        Validate all data for Zero Sales optimization.
 
         Returns:
             Tuple of (is_valid, message, details)
@@ -34,9 +34,9 @@ class ZeroSalesValidator:
         details = {
             "template_valid": False,
             "bulk_valid": False,
+            "data_compatibility": False,
+            "zero_sales_candidates": 0,
             "column_mapping": {},
-            "issues": [],
-            "warnings": [],
         }
 
         # Validate template
@@ -49,7 +49,7 @@ class ZeroSalesValidator:
         if not template_valid:
             return False, f"Template validation failed: {template_msg}", details
 
-        # Validate bulk structure
+        # Validate bulk data structure
         bulk_valid, bulk_msg, column_mapping = self._validate_bulk(bulk_data)
         details["bulk_valid"] = bulk_valid
         details["column_mapping"] = column_mapping
@@ -57,18 +57,33 @@ class ZeroSalesValidator:
         if not bulk_valid:
             return False, f"Bulk validation failed: {bulk_msg}", details
 
+        # Check data compatibility
+        compat_valid, compat_msg = self._check_compatibility(
+            template_data, bulk_data, column_mapping
+        )
+        details["data_compatibility"] = compat_valid
+
+        if not compat_valid:
+            return False, f"Data compatibility issue: {compat_msg}", details
+
         # Check for zero sales data
         has_zero_sales = self._check_zero_sales_data(bulk_data, column_mapping)
+        details["has_zero_sales_data"] = has_zero_sales
 
         if not has_zero_sales:
-            details["warnings"].append("No rows with Units=0 found")
+            return False, "No rows with Units = 0 found for processing", details
 
-        return True, "Validation passed for Zero Sales optimization", details
+        # Count candidates
+        if "units" in column_mapping:
+            units_col = column_mapping["units"]
+            details["zero_sales_candidates"] = len(bulk_data[bulk_data[units_col] == 0])
+
+        return True, "Validation successful", details
 
     def _validate_template(
         self, template_data: Dict[str, pd.DataFrame]
-    ) -> Tuple[bool, str, Dict]:
-        """Validate template data."""
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Validate template data structure and content."""
 
         details = {"template_portfolios": [], "ignored_portfolios": []}
 
@@ -117,7 +132,29 @@ class ZeroSalesValidator:
         # Map columns (case-insensitive)
         df_cols_lower = {col.lower(): col for col in bulk_data.columns}
 
+        # FIXED: Check for exact portfolio column name first
+        if "Portfolio Name (Informational only)" in bulk_data.columns:
+            column_mapping["portfolio"] = "Portfolio Name (Informational only)"
+        else:
+            # Fallback: Try to find portfolio column
+            found = False
+            for keyword in self.required_columns["portfolio"]:
+                for col_lower, col_original in df_cols_lower.items():
+                    if keyword.lower() in col_lower:
+                        column_mapping["portfolio"] = col_original
+                        found = True
+                        break
+                if found:
+                    break
+
+            if not found:
+                missing_critical.append("Portfolio Name (Informational only)")
+
+        # Map other required columns
         for req_name, keywords in self.required_columns.items():
+            if req_name == "portfolio":
+                continue  # Already handled above
+
             found = False
             for keyword in keywords:
                 for col_lower, col_original in df_cols_lower.items():
@@ -154,3 +191,50 @@ class ZeroSalesValidator:
         zero_units = bulk_data[bulk_data[units_col] == 0]
 
         return len(zero_units) > 0
+
+    def _check_compatibility(
+        self,
+        template_data: Dict[str, pd.DataFrame],
+        bulk_data: pd.DataFrame,
+        column_mapping: Dict[str, str],
+    ) -> Tuple[bool, str]:
+        """Check if template and bulk data are compatible."""
+
+        if "portfolio" not in column_mapping:
+            return False, "Portfolio column not found in bulk data"
+
+        portfolio_col = column_mapping["portfolio"]
+        port_values = template_data.get("Port Values", pd.DataFrame())
+
+        if port_values.empty:
+            return False, "Port Values sheet is empty"
+
+        # Get unique portfolios from both files
+        template_portfolios = set(port_values["Portfolio Name"].dropna().astype(str))
+        bulk_portfolios = set(bulk_data[portfolio_col].dropna().astype(str))
+
+        # Remove excluded portfolios from check
+        excluded = {
+            "Flat 30",
+            "Flat 25",
+            "Flat 40",
+            "Flat 25 | Opt",
+            "Flat 30 | Opt",
+            "Flat 20",
+            "Flat 15",
+            "Flat 40 | Opt",
+            "Flat 20 | Opt",
+            "Flat 15 | Opt",
+        }
+
+        bulk_portfolios_to_check = bulk_portfolios - excluded
+        missing_in_template = bulk_portfolios_to_check - template_portfolios
+
+        if missing_in_template:
+            missing_list = list(missing_in_template)[:5]  # Show first 5
+            return (
+                False,
+                f"Portfolios in bulk not found in template: {', '.join(missing_list)}",
+            )
+
+        return True, "Data compatible"

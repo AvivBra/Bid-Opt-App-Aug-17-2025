@@ -188,6 +188,10 @@ B003456789
 ## 7. קבצים מיוחדים
 
 ### Flat Portfolios
+
+- שם העמודה שבה נמצאים שמות הפוטפוליוז בבלק היא
+Portfolio Name (Informational only)
+
 רשימת portfolios שלא נכללים באופטימיזציות:
 ```
 Flat 30
@@ -207,6 +211,7 @@ Flat 15 | Opt
 ### לפני עיבוד
 ```
 Operation: Create / Update / Delete (מעורב)
+
 ```
 
 ### אחרי עיבוד
