@@ -2,14 +2,14 @@
 
 import pandas as pd
 from typing import Tuple, Dict, Any, Set, List
-from business.common.excluded_portfolios import EXCLUDED_PORTFOLIOS
+from business.common.excluded_portfolios import get_excluded_portfolios_set
 
 
 class PortfolioValidator:
     """Validates portfolio matching between template and bulk files."""
 
     def __init__(self):
-        self.excluded_portfolios = EXCLUDED_PORTFOLIOS
+        self.excluded_portfolios = get_excluded_portfolios_set()
 
     def validate_portfolio_matching(
         self, template_data: Dict[str, pd.DataFrame], bulk_data: pd.DataFrame
@@ -80,12 +80,12 @@ class PortfolioValidator:
 
         # Check for missing portfolios
         missing_in_template = (
-            bulk_portfolios - template_portfolios - set(self.excluded_portfolios)
+            bulk_portfolios - template_portfolios - self.excluded_portfolios
         )
         details["missing_in_template"] = list(missing_in_template)
 
         missing_in_bulk = (
-            template_portfolios - bulk_portfolios - set(self.excluded_portfolios)
+            template_portfolios - bulk_portfolios - self.excluded_portfolios
         )
         details["missing_in_bulk"] = list(missing_in_bulk)
 
@@ -127,22 +127,19 @@ class PortfolioValidator:
 
     def get_active_portfolios(self, template_data: Dict[str, pd.DataFrame]) -> Set[str]:
         """Get set of active (non-ignored) portfolios."""
+        active_portfolios = set()
 
         if "Port Values" not in template_data:
-            return set()
+            return active_portfolios
 
         port_values = template_data["Port Values"]
-        active = set()
 
-        if (
-            "Portfolio Name" in port_values.columns
-            and "Base Bid" in port_values.columns
-        ):
+        if "Portfolio Name" in port_values.columns:
             for idx, row in port_values.iterrows():
                 portfolio = str(row["Portfolio Name"]).strip()
-                base_bid = str(row["Base Bid"]).lower()
+                base_bid = str(row.get("Base Bid", "")).lower()
 
                 if portfolio and portfolio != "nan" and base_bid != "ignore":
-                    active.add(portfolio)
+                    active_portfolios.add(portfolio)
 
-        return active
+        return active_portfolios

@@ -56,7 +56,7 @@ class UploadSection:
         """Render template download and upload section."""
 
         # Download template button
-        template_bytes = self.template_generator.create_template()
+        template_bytes = self.template_generator.generate_template()
 
         st.download_button(
             label=DOWNLOAD_TEMPLATE_BUTTON,
