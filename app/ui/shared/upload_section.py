@@ -1,3 +1,7 @@
+"""
+app/ui/shared/upload_section.py
+"""
+
 """Upload section UI component."""
 
 import streamlit as st
@@ -128,8 +132,9 @@ class UploadSection:
 
         st.markdown("---")
 
-        # Template status
-        template_uploaded, _, template_info = self.bid_state.get_file_data("template")
+        # Template status - using direct session state access
+        template_uploaded = st.session_state.get("template_uploaded", False)
+        template_info = st.session_state.get("template_info", {})
 
         if template_uploaded and template_info:
             st.success(f"✓ Template: {template_info.get('filename', 'Uploaded')}")
@@ -140,8 +145,9 @@ class UploadSection:
         else:
             st.info("Template: Not uploaded")
 
-        # Bulk 60 status
-        bulk_uploaded, _, bulk_info = self.bid_state.get_file_data("bulk_60")
+        # Bulk 60 status - using direct session state access
+        bulk_uploaded = st.session_state.get("bulk_60_uploaded", False)
+        bulk_info = st.session_state.get("bulk_60_info", {})
 
         if bulk_uploaded and bulk_info:
             st.success(f"✓ Bulk 60: {bulk_info.get('filename', 'Uploaded')}")
@@ -216,7 +222,7 @@ class UploadSection:
             st.error(f"Error processing template: {str(e)}")
 
     def _process_bulk_upload(self, bulk_file, file_key: str):
-        """Process uploaded bulk file - SIMPLIFIED VERSION."""
+        """Process uploaded bulk file."""
 
         # Validate file size
         size_valid, size_msg = validate_file_size(bulk_file, is_template=False)
@@ -262,8 +268,10 @@ class UploadSection:
                         st.error(f"• {issue}")
                 return
 
-            # Store file info
-            file_info = {
+            # Store in session state directly (fixing the issue)
+            st.session_state[f"{file_key}_data"] = dataframe
+            st.session_state[f"{file_key}_uploaded"] = True
+            st.session_state[f"{file_key}_info"] = {
                 "filename": bulk_file.name,
                 "size_mb": len(file_data) / (1024 * 1024),
                 "rows": len(dataframe),
@@ -271,8 +279,6 @@ class UploadSection:
                 "zero_sales_ready": validation_details.get("zero_sales_ready", False),
                 "column_mapping": validation_details.get("column_mapping", {}),
             }
-
-            self.bid_state.store_file_data(file_key, dataframe, file_info)
 
             st.success(validation_msg)
 
