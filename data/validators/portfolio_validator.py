@@ -1,4 +1,4 @@
-"""Portfolio validation utilities - SIMPLIFIED."""
+"""Portfolio validation utilities - WITHOUT STATISTICS."""
 
 import pandas as pd
 from typing import Tuple, Dict, Any, Set, List
@@ -15,7 +15,7 @@ class PortfolioValidator:
         self, template_data: Dict[str, pd.DataFrame], bulk_data: pd.DataFrame
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        SIMPLIFIED portfolio matching validation.
+        Validate portfolio matching between template and bulk files.
 
         Returns:
             Tuple of (is_valid, message, details)
@@ -28,8 +28,10 @@ class PortfolioValidator:
             "missing_in_bulk": [],
             "matching_portfolios": [],
             "ignored_portfolios": [],
-            "zero_sales_candidates": 0,
-            "processing_ready": 0,
+            "excluded_portfolios": list(self.excluded_portfolios),
+            # REMOVED: Statistics that were displayed on UI
+            # "zero_sales_candidates": 0,
+            # "processing_ready": 0,
         }
 
         # Get template portfolios
@@ -51,15 +53,15 @@ class PortfolioValidator:
                 if portfolio and portfolio != "nan":
                     template_portfolios.add(portfolio)
 
-                    # Check if ignored
-                    base_bid = str(row.get("Base Bid", "")).lower()
-                    if base_bid == "ignore":
+                    # Check if ignored (case insensitive for 'ignore')
+                    base_bid = str(row.get("Base Bid", "")).strip()
+                    if base_bid.lower() == "ignore":
                         ignored_portfolios.add(portfolio)
 
         details["template_portfolios"] = list(template_portfolios)
         details["ignored_portfolios"] = list(ignored_portfolios)
 
-        # Get bulk portfolios - FIXED: Using exact column name
+        # Get bulk portfolios - using exact column name
         bulk_portfolios = set()
         portfolio_col = "Portfolio Name (Informational only)"
 
@@ -88,33 +90,39 @@ class PortfolioValidator:
 
         details["bulk_portfolios"] = list(bulk_portfolios)
 
-        # Check for missing portfolios
+        # Check for missing portfolios - EXCLUDING the Flat portfolios
+        # Portfolios in bulk but not in template (and not in excluded list)
         missing_in_template = (
             bulk_portfolios - template_portfolios - self.excluded_portfolios
         )
         details["missing_in_template"] = list(missing_in_template)
 
+        # Portfolios in template but not in bulk (for info only)
         missing_in_bulk = (
             template_portfolios - bulk_portfolios - self.excluded_portfolios
         )
         details["missing_in_bulk"] = list(missing_in_bulk)
 
-        # Check matching
+        # Check matching portfolios
         matching = template_portfolios & bulk_portfolios
         details["matching_portfolios"] = list(matching)
 
-        # Count zero sales candidates (simplified)
-        if "Units" in bulk_data.columns:
-            zero_sales = bulk_data[bulk_data["Units"] == 0]
-            details["zero_sales_candidates"] = len(zero_sales)
+        # REMOVED: Statistics calculations that were displayed on UI
+        # These calculations were causing confusion with incorrect counts
 
-        # Calculate processing ready count
-        active_portfolios = template_portfolios - ignored_portfolios
-        if portfolio_col in bulk_data.columns and active_portfolios:
-            processing_ready = bulk_data[
-                bulk_data[portfolio_col].isin(active_portfolios)
-            ]
-            details["processing_ready"] = len(processing_ready)
+        # Count zero sales candidates - REMOVED
+        # if "Units" in bulk_data.columns:
+        #     zero_sales = bulk_data[bulk_data["Units"] == 0]
+        #     details["zero_sales_candidates"] = len(zero_sales)
+
+        # Calculate processing ready count - REMOVED
+        # active_portfolios = template_portfolios - ignored_portfolios
+        # if portfolio_col in bulk_data.columns and active_portfolios:
+        #     portfolios_to_process = active_portfolios - self.excluded_portfolios
+        #     processing_ready = bulk_data[
+        #         bulk_data[portfolio_col].isin(portfolios_to_process)
+        #     ]
+        #     details["processing_ready"] = len(processing_ready)
 
         # Determine if valid
         if missing_in_template:
@@ -150,9 +158,14 @@ class PortfolioValidator:
         ):
             for idx, row in port_values.iterrows():
                 portfolio = str(row["Portfolio Name"]).strip()
-                base_bid = str(row.get("Base Bid", "")).lower()
+                base_bid = str(row.get("Base Bid", "")).strip()
 
-                if portfolio and portfolio != "nan" and base_bid != "ignore":
+                # Portfolio is active if Base Bid is not 'Ignore' (case insensitive)
+                if portfolio and portfolio != "nan" and base_bid.lower() != "ignore":
                     active_portfolios.add(portfolio)
 
         return active_portfolios
+
+    def check_portfolio_in_excluded_list(self, portfolio_name: str) -> bool:
+        """Check if a portfolio is in the excluded list."""
+        return portfolio_name in self.excluded_portfolios

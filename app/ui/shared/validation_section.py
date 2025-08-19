@@ -1,4 +1,4 @@
-"""Validation section UI component - SIMPLIFIED."""
+"""Validation section UI component - WITHOUT STATISTICS."""
 
 import streamlit as st
 from data.validators.portfolio_validator import PortfolioValidator
@@ -15,7 +15,7 @@ class ValidationSection:
         self.bid_state = BidState()
 
     def render(self):
-        """Render the validation section - SIMPLIFIED."""
+        """Render the validation section."""
 
         create_section_header("Data Validation", "✓")
 
@@ -47,82 +47,81 @@ class ValidationSection:
         if valid:
             st.success(f"✓ {msg}")
 
-            # Show basic stats
-            if details.get("processing_ready"):
-                st.info(f"📊 {details['processing_ready']:,} rows ready for processing")
-
-            if details.get("zero_sales_candidates"):
-                st.info(
-                    f"🎯 {details['zero_sales_candidates']:,} zero sales candidates found"
-                )
+            # REMOVED: Statistics display
+            # No longer showing "rows ready for processing" or "zero sales candidates"
 
         else:
             st.error(f"✗ {msg}")
 
-            # Show missing portfolios if any
+            # Show ALL missing portfolios
             if details.get("missing_in_template"):
-                st.error("Missing portfolios in template:")
-                for portfolio in details["missing_in_template"][:5]:  # Show max 5
+                st.error(
+                    "The following portfolios are in the Bulk file but not in Template:"
+                )
+
+                # Display ALL missing portfolios, each on its own line
+                for portfolio in details["missing_in_template"]:
                     st.caption(f"• {portfolio}")
-                if len(details["missing_in_template"]) > 5:
-                    st.caption(f"...and {len(details['missing_in_template']) - 5} more")
+
+                # Add upload new template button
+                st.info("(Bulk file will be kept in memory)")
+                if st.button("Upload New Template", key="upload_new_template_btn"):
+                    st.session_state.show_template_uploader = True
 
         st.markdown("---")
 
-        # Optimization selection (simplified)
+        # Optimization selection (simplified for Phase 1)
         self._render_optimization_selection()
 
         st.markdown("---")
 
-        # Process button
+        # Process button - only show if validation passed
         if valid:
             self._render_process_button()
 
     def _render_optimization_selection(self):
-        """Render optimization checkboxes - SIMPLIFIED."""
+        """Render optimization checkboxes - Phase 1 only Zero Sales."""
 
         st.subheader("Select Optimizations")
 
-        # Only Zero Sales is active in Phase 1
+        # Only Zero Sales is enabled in Phase 1
         col1, col2 = st.columns(2)
 
         with col1:
-            zero_sales = st.checkbox(
-                "Zero Sales Optimization", value=True, key="opt_zero_sales"
-            )
-
-            # Future optimizations (disabled)
-            st.checkbox(
-                "Portfolio Bid Optimization", disabled=True, key="opt_portfolio"
-            )
-            st.checkbox("Budget Optimization", disabled=True, key="opt_budget")
-            st.checkbox("Keyword Optimization", disabled=True, key="opt_keyword")
-            st.checkbox("ASIN Targeting", disabled=True, key="opt_asin")
-            st.checkbox("Placement Optimization", disabled=True, key="opt_placement")
-            st.checkbox("Negative Keyword Mining", disabled=True, key="opt_negative")
+            zero_sales = st.checkbox("Zero Sales", value=True, key="opt_zero_sales")
+            if zero_sales:
+                st.session_state.selected_optimizations = ["zero_sales"]
 
         with col2:
-            st.checkbox("Dayparting Optimization", disabled=True, key="opt_daypart")
-            st.checkbox("Search Term Harvesting", disabled=True, key="opt_search")
-            st.checkbox("Bid Modifier Optimization", disabled=True, key="opt_modifier")
-            st.checkbox("Campaign Structure", disabled=True, key="opt_structure")
-            st.checkbox("Product Targeting", disabled=True, key="opt_product")
-            st.checkbox("Auto to Manual", disabled=True, key="opt_auto")
-            st.checkbox("Performance Cleanup", disabled=True, key="opt_cleanup")
+            # Future optimizations - all disabled in Phase 1
+            st.checkbox(
+                "Portfolio Bid Optimization", disabled=True, key="opt_portfolio_bid"
+            )
+            st.caption("Coming Soon")
 
-        # Store selected optimizations
-        if zero_sales:
-            st.session_state.selected_optimizations = ["zero_sales"]
-        else:
-            st.session_state.selected_optimizations = []
+        # Additional rows for future optimizations
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.checkbox("Budget Optimization", disabled=True, key="opt_budget")
+            st.caption("Coming Soon")
+
+        with col4:
+            st.checkbox("Keyword Optimization", disabled=True, key="opt_keyword")
+            st.caption("Coming Soon")
 
     def _render_process_button(self):
         """Render the process files button."""
 
-        if st.session_state.get("selected_optimizations"):
-            if create_primary_button("⚡ Process Files", "process_files_btn"):
-                st.session_state.processing_started = True
-                st.session_state.current_view = "processing"
+        col1, col2, col3 = st.columns([1, 2, 1])
+
+        with col2:
+            if st.button(
+                "⚡ PROCESS FILES",
+                key="process_files_btn",
+                use_container_width=True,
+                type="primary",
+            ):
+                st.session_state.processing_status = "started"
+                st.session_state.current_view = "output"
                 st.rerun()
-        else:
-            st.warning("Please select at least one optimization")

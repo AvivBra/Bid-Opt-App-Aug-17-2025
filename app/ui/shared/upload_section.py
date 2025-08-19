@@ -1,8 +1,4 @@
-"""
-app/ui/shared/upload_section.py
-"""
-
-"""Upload section UI component."""
+"""Upload section UI component - FIXED DOUBLE STATUS."""
 
 import streamlit as st
 from data.template_generator import TemplateGenerator
@@ -53,8 +49,8 @@ class UploadSection:
         # Data Rova button (full width)
         self._render_data_rova_section()
 
-        # File status display
-        self._render_file_status()
+        # REMOVED: Duplicate file status display that was causing confusion
+        # The file uploader widgets already show the uploaded file names
 
     def _render_template_section(self):
         """Render template download and upload section."""
@@ -127,36 +123,6 @@ class UploadSection:
             help="Coming in future phases",
         )
 
-    def _render_file_status(self):
-        """Display current file upload status."""
-
-        st.markdown("---")
-
-        # Template status
-        template_uploaded = st.session_state.get("template_uploaded", False)
-        template_info = st.session_state.get("template_info", {})
-
-        if template_uploaded and template_info:
-            st.success(f"✓ Template: {template_info.get('filename', 'Uploaded')}")
-            if template_info.get("portfolios"):
-                st.caption(
-                    f"Portfolios: {template_info['portfolios']} | Active: {template_info.get('active_portfolios', 0)}"
-                )
-        else:
-            st.info("Template: Not uploaded")
-
-        # Bulk 60 status
-        bulk_uploaded = st.session_state.get("bulk_60_uploaded", False)
-        bulk_info = st.session_state.get("bulk_60_info", {})
-
-        if bulk_uploaded and bulk_info:
-            st.success(f"✓ Bulk 60: {bulk_info.get('filename', 'Uploaded')}")
-            st.caption(
-                f"Rows: {bulk_info.get('rows', 0):,} | Columns: {bulk_info.get('columns', 0)}"
-            )
-        else:
-            st.info("Bulk 60: Not uploaded")
-
     def _process_template_upload(self, template_file):
         """Process uploaded template file."""
 
@@ -199,8 +165,10 @@ class UploadSection:
                         st.error(f"• {issue}")
                 return
 
-            # Store in session state
-            st.session_state.template_data = data_dict
+            # Store in session state using BidState
+            self.bid_state.set_file_data("template", template_file, data_dict)
+
+            # Store additional info
             st.session_state.template_uploaded = True
             st.session_state.template_info = {
                 "filename": template_file.name,
@@ -214,7 +182,7 @@ class UploadSection:
             # Mark this file as processed
             st.session_state.last_processed_template = template_file.name
 
-            # Show validation message
+            # Show validation message in validation section
             st.success(validation_msg)
 
             # Show warnings if any
@@ -276,8 +244,10 @@ class UploadSection:
                         st.error(f"• {issue}")
                 return
 
-            # Store in session state
-            st.session_state[f"{file_key}_data"] = dataframe
+            # Store in session state using BidState
+            self.bid_state.set_file_data(file_key, bulk_file, dataframe)
+
+            # Store additional info
             st.session_state[f"{file_key}_uploaded"] = True
             st.session_state[f"{file_key}_info"] = {
                 "filename": bulk_file.name,
