@@ -1,273 +1,209 @@
-"""Upload section UI component - FIXED DOUBLE STATUS."""
+"""Upload section UI component with fixed file handling."""
 
 import streamlit as st
+from io import BytesIO
+import pandas as pd
+from typing import Optional, Dict, Any
 from data.template_generator import TemplateGenerator
 from data.readers.excel_reader import ExcelReader
-from data.readers.csv_reader import CSVReader
 from data.validators.template_validator import TemplateValidator
 from data.validators.bulk_validator import BulkValidator
 from app.state.bid_state import BidState
-from app.ui.layout import create_section_header, create_status_message
-from app.ui.components.buttons import create_primary_button, create_secondary_button
-from utils.file_utils import validate_file_size, validate_file_extension
-from config.ui_text import *
+from config.constants import MAX_FILE_SIZE_MB, MAX_TEMPLATE_SIZE_MB, REQUIRED_COLUMNS
 
 
 class UploadSection:
-    """Handles file upload UI and processing."""
+    """Component for handling file uploads."""
 
     def __init__(self):
+        """Initialize upload section."""
         self.template_generator = TemplateGenerator()
         self.excel_reader = ExcelReader()
-        self.csv_reader = CSVReader()
         self.template_validator = TemplateValidator()
         self.bulk_validator = BulkValidator()
         self.bid_state = BidState()
 
-    def render(self):
+    def render(self) -> None:
         """Render the upload section."""
+        st.markdown("### Upload Files")
+        st.markdown("---")
 
-        create_section_header("Upload Files", "📤")
+        # Template section
+        self._render_template_section()
 
-        # Create grid layout for upload buttons
+        # Bulk files section
+        self._render_bulk_section()
+
+        # Status display
+        self._display_upload_status()
+
+    def _render_template_section(self) -> None:
+        """Render template upload section."""
         col1, col2 = st.columns(2)
 
         with col1:
-            self._render_template_section()
+            # Download Template button
+            if st.button("Download Template", use_container_width=True):
+                template_bytes = self.template_generator.create_template()
+                st.download_button(
+                    label="Save Template",
+                    data=template_bytes,
+                    file_name="template.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
 
         with col2:
-            self._render_bulk_7_section()
-
-        col3, col4 = st.columns(2)
-
-        with col3:
-            self._render_bulk_30_section()
-
-        with col4:
-            self._render_bulk_60_section()
-
-        # Data Rova button (full width)
-        self._render_data_rova_section()
-
-        # REMOVED: Duplicate file status display that was causing confusion
-        # The file uploader widgets already show the uploaded file names
-
-    def _render_template_section(self):
-        """Render template download and upload section."""
-
-        # Download template button
-        template_bytes = self.template_generator.generate_template()
-
-        st.download_button(
-            label=DOWNLOAD_TEMPLATE_BUTTON,
-            data=template_bytes,
-            file_name="bid_optimizer_template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
-
-        # Upload template
-        template_file = st.file_uploader(
-            "Upload Template",
-            type=["xlsx"],
-            key="template_uploader",
-            help=TEMPLATE_UPLOAD_HELP,
-        )
-
-        if template_file:
-            self._process_template_upload(template_file)
-
-    def _render_bulk_7_section(self):
-        """Render Bulk 7 Days section."""
-
-        # Disabled button with coming soon message
-        st.button(
-            UPLOAD_BULK_7_BUTTON,
-            disabled=True,
-            use_container_width=True,
-            help=BULK_7_TBC,
-        )
-
-    def _render_bulk_30_section(self):
-        """Render Bulk 30 Days section."""
-
-        # Disabled button with coming soon message
-        st.button(
-            UPLOAD_BULK_30_BUTTON,
-            disabled=True,
-            use_container_width=True,
-            help=BULK_30_TBC,
-        )
-
-    def _render_bulk_60_section(self):
-        """Render Bulk 60 Days section."""
-
-        # Upload Bulk 60
-        bulk_file = st.file_uploader(
-            "Upload Bulk 60",
-            type=["xlsx", "csv"],
-            key="bulk_60_uploader",
-            help=BULK_UPLOAD_HELP,
-        )
-
-        if bulk_file:
-            self._process_bulk_upload(bulk_file, "bulk_60")
-
-    def _render_data_rova_section(self):
-        """Render Data Rova section."""
-
-        st.button(
-            "📊 Data Rova Integration",
-            disabled=True,
-            use_container_width=True,
-            help="Coming in future phases",
-        )
-
-    def _process_template_upload(self, template_file):
-        """Process uploaded template file."""
-
-        # Check if we already processed this file
-        if st.session_state.get("last_processed_template") == template_file.name:
-            return
-
-        # Validate file size
-        size_valid, size_msg = validate_file_size(template_file, is_template=True)
-        if not size_valid:
-            st.error(size_msg)
-            return
-
-        # Validate file extension
-        ext_valid, ext_msg = validate_file_extension(template_file.name, [".xlsx"])
-        if not ext_valid:
-            st.error(ext_msg)
-            return
-
-        try:
-            # Read file data
-            file_data = template_file.read()
-
-            # Read and validate template
-            success, msg, data_dict = self.excel_reader.read_template_file(file_data)
-
-            if not success:
-                st.error(f"Template Error: {msg}")
-                return
-
-            # Additional validation
-            valid, validation_msg, validation_details = (
-                self.template_validator.validate_complete(data_dict)
+            # Upload Template
+            uploaded_file = st.file_uploader(
+                "Upload Template",
+                type=["xlsx"],
+                key="template_upload",
+                help="Upload your Template file with portfolio settings",
             )
 
-            if not valid:
-                st.error(f"Validation Error: {validation_msg}")
-                if validation_details.get("issues"):
-                    for issue in validation_details["issues"][:3]:
-                        st.error(f"• {issue}")
+            if uploaded_file is not None:
+                self._process_template_upload(uploaded_file)
+
+    def _render_bulk_section(self) -> None:
+        """Render bulk files upload section."""
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            # Bulk 60 (enabled)
+            uploaded_file = st.file_uploader(
+                "Upload Bulk 60",
+                type=["xlsx", "csv"],
+                key="bulk_60_upload",
+                help="Upload your 60-day Bulk file from Amazon",
+            )
+
+            if uploaded_file is not None:
+                self._process_bulk_upload(uploaded_file, "60")
+
+        with col2:
+            # Bulk 30 (disabled)
+            st.markdown("##### Bulk 30")
+            st.button(
+                "Coming Soon",
+                disabled=True,
+                use_container_width=True,
+                key="bulk_30_disabled",
+            )
+
+        with col3:
+            # Bulk 7 (disabled)
+            st.markdown("##### Bulk 7")
+            st.button(
+                "Coming Soon",
+                disabled=True,
+                use_container_width=True,
+                key="bulk_7_disabled",
+            )
+
+        # Data Rova (disabled)
+        st.markdown("##### Data Rova Integration")
+        st.button(
+            "Coming Soon",
+            disabled=True,
+            use_container_width=True,
+            key="data_rova_disabled",
+        )
+
+    def _process_template_upload(self, uploaded_file) -> None:
+        """Process uploaded template file."""
+        try:
+            # Check file size
+            file_size_mb = uploaded_file.size / (1024 * 1024)
+            if file_size_mb > MAX_TEMPLATE_SIZE_MB:
+                st.error(f"File exceeds {MAX_TEMPLATE_SIZE_MB}MB limit")
                 return
 
-            # Store in session state using BidState
-            self.bid_state.set_file_data("template", template_file, data_dict)
+            # Read file into BytesIO
+            file_bytes = BytesIO(uploaded_file.read())
 
-            # Store additional info
-            st.session_state.template_uploaded = True
-            st.session_state.template_info = {
-                "filename": template_file.name,
-                "size_mb": len(file_data) / (1024 * 1024),
-                "portfolios": validation_details["portfolio_count"],
-                "active_portfolios": validation_details["portfolio_count"]
-                - validation_details["ignore_count"],
-                "ignored_portfolios": validation_details["ignore_count"],
-            }
+            # Validate template structure
+            is_valid, message, dataframes = self.template_validator.validate(file_bytes)
 
-            # Mark this file as processed
-            st.session_state.last_processed_template = template_file.name
+            if not is_valid:
+                st.error(f"Validation Error: {message}")
+                return
 
-            # Show validation message in validation section
-            st.success(validation_msg)
-
-            # Show warnings if any
-            if validation_details.get("warnings"):
-                for warning in validation_details["warnings"]:
-                    st.warning(f"⚠️ {warning}")
+            # Save to state
+            if dataframes and "Port Values" in dataframes:
+                self.bid_state.save_template(file_bytes, dataframes["Port Values"])
+                st.success(f"{uploaded_file.name} uploaded successfully")
+            else:
+                st.error("Error processing template: Invalid data structure")
 
         except Exception as e:
             st.error(f"Error processing template: {str(e)}")
 
-    def _process_bulk_upload(self, bulk_file, file_key: str):
+    def _process_bulk_upload(self, uploaded_file, bulk_type: str) -> None:
         """Process uploaded bulk file."""
-
-        # Check if we already processed this file
-        if st.session_state.get(f"last_processed_{file_key}") == bulk_file.name:
-            return
-
-        # Validate file size
-        size_valid, size_msg = validate_file_size(bulk_file, is_template=False)
-        if not size_valid:
-            st.error(size_msg)
-            return
-
-        # Validate file extension
-        ext_valid, ext_msg = validate_file_extension(bulk_file.name, [".xlsx", ".csv"])
-        if not ext_valid:
-            st.error(ext_msg)
-            return
-
         try:
-            # Read file data
-            file_data = bulk_file.read()
-            is_csv = bulk_file.name.lower().endswith(".csv")
+            # Check file size
+            file_size_mb = uploaded_file.size / (1024 * 1024)
+            if file_size_mb > MAX_FILE_SIZE_MB:
+                st.error(f"File exceeds {MAX_FILE_SIZE_MB}MB limit")
+                return
 
             # Read file based on type
-            if is_csv:
-                success, msg, dataframe = self.csv_reader.read_csv_file(
-                    file_data, bulk_file.name
-                )
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
             else:
-                success, msg, dataframe = self.excel_reader.read_bulk_file(
-                    file_data, bulk_file.name
+                df = pd.read_excel(
+                    uploaded_file, sheet_name="Sponsored Products Campaigns"
                 )
 
-            if not success:
-                st.error(f"Bulk File Error: {msg}")
+            # Validate bulk file
+            is_valid, message = self.bulk_validator.validate(df)
+
+            if not is_valid:
+                st.error(f"Validation Error: {message}")
                 return
 
-            # Simple validation without heavy analysis
-            with st.spinner("Validating bulk file..."):
-                valid, validation_msg, validation_details = (
-                    self.bulk_validator.validate_complete(dataframe, bulk_file.name)
-                )
-
-            if not valid:
-                st.error(f"Validation Error: {validation_msg}")
-                if validation_details.get("issues"):
-                    for issue in validation_details["issues"][:3]:
-                        st.error(f"• {issue}")
-                return
-
-            # Store in session state using BidState
-            self.bid_state.set_file_data(file_key, bulk_file, dataframe)
-
-            # Store additional info
-            st.session_state[f"{file_key}_uploaded"] = True
-            st.session_state[f"{file_key}_info"] = {
-                "filename": bulk_file.name,
-                "size_mb": len(file_data) / (1024 * 1024),
-                "rows": len(dataframe),
-                "columns": len(dataframe.columns),
-                "zero_sales_ready": validation_details.get("zero_sales_ready", False),
-                "column_mapping": validation_details.get("column_mapping", {}),
-            }
-
-            # Mark this file as processed
-            st.session_state[f"last_processed_{file_key}"] = bulk_file.name
-
-            # Show validation message
-            st.success(validation_msg)
-
-            # Show simple warnings if any
-            if validation_details.get("warnings"):
-                for warning in validation_details["warnings"][:2]:
-                    st.warning(f"⚠️ {warning}")
+            # Save to state
+            file_bytes = BytesIO(uploaded_file.read())
+            uploaded_file.seek(0)  # Reset file pointer
+            self.bid_state.save_bulk(bulk_type, file_bytes, df)
+            st.success(f"{uploaded_file.name} uploaded successfully")
+            st.info(f"{len(df):,} rows loaded")
 
         except Exception as e:
             st.error(f"Error processing bulk file: {str(e)}")
+
+    def _display_upload_status(self) -> None:
+        """Display current upload status."""
+        if self.bid_state.has_template() or self.bid_state.has_bulk("60"):
+            st.markdown("---")
+            st.markdown("#### Uploaded Files")
+
+            if self.bid_state.has_template():
+                st.success("Template file uploaded")
+
+            if self.bid_state.has_bulk("60"):
+                bulk_df = self.bid_state.get_bulk("60")
+                if bulk_df is not None:
+                    st.success(f"Bulk 60 file uploaded ({len(bulk_df):,} rows)")
+
+
+# Standalone functions for backward compatibility
+def render() -> None:
+    """Render the upload section."""
+    section = UploadSection()
+    section.render()
+
+
+def process_template_upload(uploaded_file) -> bool:
+    """Process template upload."""
+    section = UploadSection()
+    section._process_template_upload(uploaded_file)
+    return True
+
+
+def process_bulk_upload(uploaded_file, bulk_type: str) -> bool:
+    """Process bulk upload."""
+    section = UploadSection()
+    section._process_bulk_upload(uploaded_file, bulk_type)
+    return True

@@ -1,191 +1,149 @@
 """Checklist component for optimization selection."""
 
 import streamlit as st
-from typing import List, Dict, Any
+from typing import List, Dict
 
 
-def create_optimization_checklist(
-    optimizations: List[Dict[str, Any]], 
-    key_prefix: str = "opt"
-) -> List[str]:
-    """
-    Create a checklist for optimization selection.
-    
-    Args:
-        optimizations: List of optimization dictionaries with keys:
-            - name: Display name
-            - key: Unique key for the optimization
-            - enabled: Whether checkbox is enabled
-            - default: Default checked state
-            - help: Help text
-        key_prefix: Prefix for Streamlit keys
-    
-    Returns:
-        List of selected optimization keys
-    """
-    
-    selected_optimizations = []
-    
-    for opt in optimizations:
-        opt_name = opt['name']
-        opt_key = opt['key']
-        opt_enabled = opt.get('enabled', True)
-        opt_default = opt.get('default', False)
-        opt_help = opt.get('help', '')
-        
-        checkbox_key = f"{key_prefix}_{opt_key}"
-        
-        # Get current state from session if exists
-        current_value = st.session_state.get(checkbox_key, opt_default)
-        
-        is_checked = st.checkbox(
-            opt_name,
-            value=current_value,
-            disabled=not opt_enabled,
-            help=opt_help,
-            key=checkbox_key
-        )
-        
-        if is_checked and opt_enabled:
-            selected_optimizations.append(opt_key)
-    
-    return selected_optimizations
+class OptimizationChecklist:
+    """Component for displaying and managing optimization selections."""
 
+    # Define all optimizations with their status
+    OPTIMIZATIONS = [
+        {
+            "name": "Zero Sales",
+            "enabled": True,
+            "description": "Optimize bids for products with zero sales",
+        },
+        {"name": "Low Impressions", "enabled": False, "description": "Coming Soon"},
+        {"name": "High ACOS", "enabled": False, "description": "Coming Soon"},
+        {"name": "Top Performers", "enabled": False, "description": "Coming Soon"},
+        {"name": "Negative Keywords", "enabled": False, "description": "Coming Soon"},
+        {"name": "Bid Adjustments", "enabled": False, "description": "Coming Soon"},
+        {"name": "Budget Optimization", "enabled": False, "description": "Coming Soon"},
+        {
+            "name": "Placement Optimization",
+            "enabled": False,
+            "description": "Coming Soon",
+        },
+        {"name": "Dayparting", "enabled": False, "description": "Coming Soon"},
+        {
+            "name": "Search Term Optimization",
+            "enabled": False,
+            "description": "Coming Soon",
+        },
+        {"name": "Product Targeting", "enabled": False, "description": "Coming Soon"},
+        {"name": "Campaign Structure", "enabled": False, "description": "Coming Soon"},
+        {"name": "Keyword Harvesting", "enabled": False, "description": "Coming Soon"},
+        {"name": "Bid Rules", "enabled": False, "description": "Coming Soon"},
+    ]
 
-def create_validation_checklist(validation_items: List[Dict[str, Any]]) -> Dict[str, bool]:
-    """
-    Create a validation status checklist.
-    
-    Args:
-        validation_items: List of validation items with keys:
-            - name: Display name
-            - status: 'pass', 'fail', 'warning', 'pending'
-            - message: Status message
-    
-    Returns:
-        Dictionary mapping item names to pass/fail status
-    """
-    
-    results = {}
-    
-    for item in validation_items:
-        name = item['name']
-        status = item.get('status', 'pending')
-        message = item.get('message', '')
-        
-        # Status icon and color
-        if status == 'pass':
-            icon = "✅"
-            color = "success"
-        elif status == 'fail':
-            icon = "❌"
-            color = "error"
-        elif status == 'warning':
-            icon = "⚠️"
-            color = "warning"
-        else:  # pending
-            icon = "⏳"
-            color = "info"
-        
-        # Display item
-        col1, col2 = st.columns([1, 4])
-        
-        with col1:
-            st.markdown(f"<span style='font-size: 20px;'>{icon}</span>", unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"**{name}**")
-            if message:
-                if color == "success":
-                    st.success(message)
-                elif color == "error":
-                    st.error(message)
-                elif color == "warning":
-                    st.warning(message)
+    def __init__(self):
+        """Initialize the checklist component."""
+        self._init_state()
+
+    def _init_state(self):
+        """Initialize session state for selections."""
+        if "selected_optimizations" not in st.session_state:
+            st.session_state.selected_optimizations = []
+
+    def render(self) -> List[str]:
+        """
+        Render the optimization checklist.
+
+        Returns:
+            List of selected optimization names
+        """
+        selected = []
+
+        # Create two columns for better layout
+        col1, col2 = st.columns(2)
+
+        for i, opt in enumerate(self.OPTIMIZATIONS):
+            # Determine which column to use
+            col = col1 if i % 2 == 0 else col2
+
+            with col:
+                if opt["enabled"]:
+                    # Enabled checkbox
+                    is_selected = st.checkbox(
+                        opt["name"],
+                        key=f"opt_{opt['name'].replace(' ', '_')}",
+                        help=opt.get("description", ""),
+                    )
+                    if is_selected:
+                        selected.append(opt["name"])
                 else:
-                    st.info(message)
-        
-        results[name] = status == 'pass'
-    
-    return results
+                    # Disabled checkbox with "Coming Soon"
+                    st.checkbox(
+                        f"{opt['name']} (Coming Soon)",
+                        key=f"opt_{opt['name'].replace(' ', '_')}_disabled",
+                        disabled=True,
+                        help=opt["description"],
+                    )
+
+        # Update session state
+        st.session_state.selected_optimizations = selected
+
+        return selected
+
+    def get_selected(self) -> List[str]:
+        """Get currently selected optimizations."""
+        return st.session_state.get("selected_optimizations", [])
+
+    def set_selected(self, optimizations: List[str]):
+        """Set selected optimizations."""
+        st.session_state.selected_optimizations = optimizations
+
+    def clear_all(self):
+        """Clear all selections."""
+        st.session_state.selected_optimizations = []
+
+    def select_all_enabled(self):
+        """Select all enabled optimizations."""
+        enabled = [opt["name"] for opt in self.OPTIMIZATIONS if opt["enabled"]]
+        st.session_state.selected_optimizations = enabled
+
+    def is_any_selected(self) -> bool:
+        """Check if any optimization is selected."""
+        return len(st.session_state.get("selected_optimizations", [])) > 0
+
+    @staticmethod
+    def get_optimization_info(name: str) -> Dict:
+        """Get information about a specific optimization."""
+        for opt in OptimizationChecklist.OPTIMIZATIONS:
+            if opt["name"] == name:
+                return opt
+        return None
 
 
-def create_file_status_checklist(file_statuses: Dict[str, Dict[str, Any]]) -> None:
+# Standalone function for backward compatibility
+def render_optimization_checklist() -> List[str]:
     """
-    Create a checklist showing file upload status.
-    
-    Args:
-        file_statuses: Dictionary mapping file types to status info
+    Render the optimization checklist.
+
+    Returns:
+        List of selected optimization names
     """
-    
-    st.markdown("#### 📁 File Upload Status")
-    
-    for file_type, status_info in file_statuses.items():
-        uploaded = status_info.get('uploaded', False)
-        filename = status_info.get('filename', 'Not uploaded')
-        data_available = status_info.get('data_available', False)
-        
-        col1, col2, col3 = st.columns([1, 3, 2])
-        
-        with col1:
-            if uploaded and data_available:
-                st.markdown("✅")
-            elif uploaded:
-                st.markdown("⚠️")
-            else:
-                st.markdown("❌")
-        
-        with col2:
-            st.markdown(f"**{file_type.replace('_', ' ').title()}**")
-            st.caption(filename if uploaded else "Not uploaded")
-        
-        with col3:
-            if uploaded and data_available:
-                st.success("Ready")
-            elif uploaded:
-                st.warning("Issues")
-            else:
-                st.error("Missing")
+    checklist = OptimizationChecklist()
+    return checklist.render()
 
 
-def create_processing_steps_checklist(steps: List[Dict[str, Any]]) -> None:
-    """
-    Create a checklist showing processing steps.
-    
-    Args:
-        steps: List of processing steps with keys:
-            - name: Step name
-            - status: 'complete', 'in_progress', 'pending', 'failed'
-            - message: Optional status message
-    """
-    
-    st.markdown("#### ⚙️ Processing Steps")
-    
-    for i, step in enumerate(steps, 1):
-        name = step['name']
-        status = step.get('status', 'pending')
-        message = step.get('message', '')
-        
-        col1, col2 = st.columns([1, 4])
-        
-        with col1:
-            if status == 'complete':
-                st.markdown(f"✅ {i}")
-            elif status == 'in_progress':
-                st.markdown(f"⏳ {i}")
-            elif status == 'failed':
-                st.markdown(f"❌ {i}")
-            else:  # pending
-                st.markdown(f"⭕ {i}")
-        
-        with col2:
-            st.markdown(f"**{name}**")
-            if message:
-                if status == 'complete':
-                    st.success(message)
-                elif status == 'failed':
-                    st.error(message)
-                elif status == 'in_progress':
-                    st.info(message)
-                else:
-                    st.caption(message)
+# Additional helper functions
+def get_selected_optimizations() -> List[str]:
+    """Get currently selected optimizations."""
+    return st.session_state.get("selected_optimizations", [])
+
+
+def set_selected_optimizations(optimizations: List[str]):
+    """Set selected optimizations."""
+    st.session_state.selected_optimizations = optimizations
+
+
+def is_any_optimization_selected() -> bool:
+    """Check if any optimization is selected."""
+    return len(st.session_state.get("selected_optimizations", [])) > 0
+
+
+def clear_optimization_selections():
+    """Clear all optimization selections."""
+    st.session_state.selected_optimizations = []

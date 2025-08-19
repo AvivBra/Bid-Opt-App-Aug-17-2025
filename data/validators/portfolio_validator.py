@@ -1,171 +1,192 @@
-"""Portfolio validation utilities - WITHOUT STATISTICS."""
+"""Portfolio validation between template and bulk files."""
 
 import pandas as pd
-from typing import Tuple, Dict, Any, Set, List
-from business.common.excluded_portfolios import get_excluded_portfolios_set
+from typing import Dict, List, Set, Optional
+from business.common.excluded_portfolios import EXCLUDED_PORTFOLIOS
 
 
 class PortfolioValidator:
-    """Validates portfolio matching between template and bulk files."""
+    """Validator for portfolio matching between template and bulk files."""
 
     def __init__(self):
-        self.excluded_portfolios = get_excluded_portfolios_set()
+        """Initialize the portfolio validator."""
+        self.excluded_portfolios = set(EXCLUDED_PORTFOLIOS)
 
-    def validate_portfolio_matching(
-        self, template_data: Dict[str, pd.DataFrame], bulk_data: pd.DataFrame
-    ) -> Tuple[bool, str, Dict[str, Any]]:
+    def validate(self, template_df: pd.DataFrame, bulk_df: pd.DataFrame) -> Dict:
         """
-        Validate portfolio matching between template and bulk files.
+        Validate portfolios between template and bulk files.
+
+        Args:
+            template_df: Template DataFrame with portfolio definitions
+            bulk_df: Bulk DataFrame with campaign data
 
         Returns:
-            Tuple of (is_valid, message, details)
+            Dictionary with validation results
         """
-
-        details = {
-            "template_portfolios": [],
-            "bulk_portfolios": [],
-            "missing_in_template": [],
-            "missing_in_bulk": [],
-            "matching_portfolios": [],
+        result = {
+            "valid": False,
+            "missing_portfolios": [],
+            "excluded_portfolios": [],
             "ignored_portfolios": [],
-            "excluded_portfolios": list(self.excluded_portfolios),
-            # REMOVED: Statistics that were displayed on UI
-            # "zero_sales_candidates": 0,
-            # "processing_ready": 0,
+            "total_template": 0,
+            "total_bulk": 0,
+            "matched": 0,
         }
 
-        # Get template portfolios
-        if "Port Values" not in template_data:
-            return False, "Port Values sheet not found", details
+        try:
+            # Get portfolios from template
+            template_portfolios = self._get_template_portfolios(template_df)
+            result["total_template"] = len(template_portfolios)
 
-        port_values = template_data["Port Values"]
+            # Get portfolios from bulk
+            bulk_portfolios = self._get_bulk_portfolios(bulk_df)
+            result["total_bulk"] = len(bulk_portfolios)
 
-        if port_values.empty:
-            return False, "Port Values sheet is empty", details
+            # Find missing portfolios
+            missing = bulk_portfolios - template_portfolios
 
-        # Extract portfolio names from template
-        template_portfolios = set()
-        ignored_portfolios = set()
+            # Filter out excluded portfolios
+            missing_non_excluded = missing - self.excluded_portfolios
+            result["missing_portfolios"] = list(missing_non_excluded)
 
-        if "Portfolio Name" in port_values.columns:
-            for idx, row in port_values.iterrows():
-                portfolio = str(row["Portfolio Name"]).strip()
-                if portfolio and portfolio != "nan":
-                    template_portfolios.add(portfolio)
+            # Track excluded portfolios that were found
+            result["excluded_portfolios"] = list(missing & self.excluded_portfolios)
 
-                    # Check if ignored (case insensitive for 'ignore')
-                    base_bid = str(row.get("Base Bid", "")).strip()
-                    if base_bid.lower() == "ignore":
-                        ignored_portfolios.add(portfolio)
+            # Find ignored portfolios
+            result["ignored_portfolios"] = self._get_ignored_portfolios(template_df)
 
-        details["template_portfolios"] = list(template_portfolios)
-        details["ignored_portfolios"] = list(ignored_portfolios)
+            # Calculate matched
+            result["matched"] = len(bulk_portfolios & template_portfolios)
 
-        # Get bulk portfolios - using exact column name
-        bulk_portfolios = set()
-        portfolio_col = "Portfolio Name (Informational only)"
+            # Determine if valid
+            result["valid"] = len(result["missing_portfolios"]) == 0
 
-        # Check if the exact column exists
-        if portfolio_col in bulk_data.columns:
-            bulk_portfolios = set(
-                bulk_data[portfolio_col].dropna().astype(str).str.strip().unique()
-            )
-            bulk_portfolios.discard("nan")
-            bulk_portfolios.discard("")
-        else:
-            # Fallback: Try to find column containing "portfolio" (case-insensitive)
-            for col in bulk_data.columns:
-                if "portfolio" in col.lower():
-                    portfolio_col = col
-                    bulk_portfolios = set(
-                        bulk_data[portfolio_col]
-                        .dropna()
-                        .astype(str)
-                        .str.strip()
-                        .unique()
-                    )
-                    bulk_portfolios.discard("nan")
-                    bulk_portfolios.discard("")
-                    break
+        except Exception as e:
+            result["error"] = str(e)
+            result["valid"] = False
 
-        details["bulk_portfolios"] = list(bulk_portfolios)
+        return result
 
-        # Check for missing portfolios - EXCLUDING the Flat portfolios
-        # Portfolios in bulk but not in template (and not in excluded list)
-        missing_in_template = (
-            bulk_portfolios - template_portfolios - self.excluded_portfolios
-        )
-        details["missing_in_template"] = list(missing_in_template)
-
-        # Portfolios in template but not in bulk (for info only)
-        missing_in_bulk = (
-            template_portfolios - bulk_portfolios - self.excluded_portfolios
-        )
-        details["missing_in_bulk"] = list(missing_in_bulk)
-
-        # Check matching portfolios
-        matching = template_portfolios & bulk_portfolios
-        details["matching_portfolios"] = list(matching)
-
-        # REMOVED: Statistics calculations that were displayed on UI
-        # These calculations were causing confusion with incorrect counts
-
-        # Count zero sales candidates - REMOVED
-        # if "Units" in bulk_data.columns:
-        #     zero_sales = bulk_data[bulk_data["Units"] == 0]
-        #     details["zero_sales_candidates"] = len(zero_sales)
-
-        # Calculate processing ready count - REMOVED
-        # active_portfolios = template_portfolios - ignored_portfolios
-        # if portfolio_col in bulk_data.columns and active_portfolios:
-        #     portfolios_to_process = active_portfolios - self.excluded_portfolios
-        #     processing_ready = bulk_data[
-        #         bulk_data[portfolio_col].isin(portfolios_to_process)
-        #     ]
-        #     details["processing_ready"] = len(processing_ready)
-
-        # Determine if valid
-        if missing_in_template:
-            return (
-                False,
-                f"Missing {len(missing_in_template)} portfolios in template",
-                details,
-            )
-
-        if len(ignored_portfolios) == len(template_portfolios):
-            return False, "All portfolios are set to 'Ignore'", details
-
-        # Success
-        active_count = len(template_portfolios) - len(ignored_portfolios)
-        return (
-            True,
-            f"Portfolios valid: {active_count} active, {len(ignored_portfolios)} ignored",
-            details,
-        )
-
-    def get_active_portfolios(self, template_data: Dict[str, pd.DataFrame]) -> Set[str]:
-        """Get set of active (non-ignored) portfolios."""
-
-        if "Port Values" not in template_data:
+    def _get_template_portfolios(self, df: pd.DataFrame) -> Set[str]:
+        """Extract portfolio names from template."""
+        if "Portfolio Name" not in df.columns:
             return set()
 
-        port_values = template_data["Port Values"]
-        active_portfolios = set()
+        portfolios = df["Portfolio Name"].dropna().unique()
+        return set(portfolios)
 
-        if (
-            "Portfolio Name" in port_values.columns
-            and "Base Bid" in port_values.columns
-        ):
-            for idx, row in port_values.iterrows():
-                portfolio = str(row["Portfolio Name"]).strip()
-                base_bid = str(row.get("Base Bid", "")).strip()
+    def _get_bulk_portfolios(self, df: pd.DataFrame) -> Set[str]:
+        """Extract portfolio names from bulk file."""
+        column_name = None
 
-                # Portfolio is active if Base Bid is not 'Ignore' (case insensitive)
-                if portfolio and portfolio != "nan" and base_bid.lower() != "ignore":
-                    active_portfolios.add(portfolio)
+        # Try different possible column names
+        possible_names = [
+            "Portfolio Name (Informational only)",
+            "Portfolio Name",
+            "Portfolio",
+            "portfolio name (informational only)",
+            "portfolio name",
+        ]
 
-        return active_portfolios
+        for name in possible_names:
+            if name in df.columns:
+                column_name = name
+                break
 
-    def check_portfolio_in_excluded_list(self, portfolio_name: str) -> bool:
+        if column_name is None:
+            return set()
+
+        portfolios = df[column_name].dropna().unique()
+        return set(portfolios)
+
+    def _get_ignored_portfolios(self, template_df: pd.DataFrame) -> List[str]:
+        """Get portfolios marked as 'Ignore' in template."""
+        if "Base Bid" not in template_df.columns:
+            return []
+
+        ignored_df = template_df[
+            template_df["Base Bid"].astype(str).str.lower() == "ignore"
+        ]
+
+        if "Portfolio Name" in ignored_df.columns:
+            return ignored_df["Portfolio Name"].tolist()
+
+        return []
+
+    def check_portfolio_exists(
+        self, portfolio_name: str, template_df: pd.DataFrame
+    ) -> bool:
+        """Check if a specific portfolio exists in template."""
+        template_portfolios = self._get_template_portfolios(template_df)
+        return portfolio_name in template_portfolios
+
+    def is_excluded(self, portfolio_name: str) -> bool:
         """Check if a portfolio is in the excluded list."""
         return portfolio_name in self.excluded_portfolios
+
+
+# Standalone function for backward compatibility
+def validate_portfolios(template_df: pd.DataFrame, bulk_df: pd.DataFrame) -> Dict:
+    """
+    Validate portfolios between template and bulk files.
+
+    Args:
+        template_df: Template DataFrame with portfolio definitions
+        bulk_df: Bulk DataFrame with campaign data
+
+    Returns:
+        Dictionary with validation results including:
+        - valid: bool indicating if validation passed
+        - missing_portfolios: list of missing portfolio names
+        - excluded_portfolios: list of excluded portfolios found
+        - ignored_portfolios: list of ignored portfolios
+        - total_template: total portfolios in template
+        - total_bulk: total portfolios in bulk
+        - matched: number of matched portfolios
+    """
+    validator = PortfolioValidator()
+    return validator.validate(template_df, bulk_df)
+
+
+def check_missing_portfolios(
+    template_df: pd.DataFrame, bulk_df: pd.DataFrame
+) -> List[str]:
+    """
+    Get list of portfolios in bulk but not in template.
+
+    Args:
+        template_df: Template DataFrame
+        bulk_df: Bulk DataFrame
+
+    Returns:
+        List of missing portfolio names
+    """
+    result = validate_portfolios(template_df, bulk_df)
+    return result.get("missing_portfolios", [])
+
+
+def get_ignored_portfolios(template_df: pd.DataFrame) -> List[str]:
+    """
+    Get list of portfolios marked as 'Ignore'.
+
+    Args:
+        template_df: Template DataFrame
+
+    Returns:
+        List of ignored portfolio names
+    """
+    validator = PortfolioValidator()
+    return validator._get_ignored_portfolios(template_df)
+
+
+def is_portfolio_excluded(portfolio_name: str) -> bool:
+    """
+    Check if a portfolio is in the excluded list.
+
+    Args:
+        portfolio_name: Name of portfolio to check
+
+    Returns:
+        True if portfolio is excluded
+    """
+    return portfolio_name in EXCLUDED_PORTFOLIOS

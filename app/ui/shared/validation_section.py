@@ -1,127 +1,177 @@
-"""Validation section UI component - WITHOUT STATISTICS."""
+"""Validation section UI component with ValidationSection class."""
 
 import streamlit as st
-from data.validators.portfolio_validator import PortfolioValidator
-from app.state.bid_state import BidState
-from app.ui.layout import create_section_header, create_status_message
-from app.ui.components.buttons import create_primary_button
+from typing import List, Dict, Optional
+from app.ui.components.checklist import render_optimization_checklist
+from app.ui.components.alerts import show_validation_alert
+from data.validators.portfolio_validator import validate_portfolios
+from business.common.excluded_portfolios import EXCLUDED_PORTFOLIOS
+from utils.page_utils import initialize_processing_state, switch_panel
 
 
 class ValidationSection:
-    """Handles data validation UI and processing."""
+    """Validation section component for portfolio validation and optimization selection."""
 
     def __init__(self):
-        self.portfolio_validator = PortfolioValidator()
-        self.bid_state = BidState()
+        """Initialize the validation section."""
+        self.validation_result = None
+        self.selected_optimizations = []
 
-    def render(self):
-        """Render the validation section."""
+    def render(self) -> None:
+        """Render the validation section panel."""
+        with st.container():
+            st.markdown("### DATA VALIDATION")
+            st.markdown("---")
 
-        create_section_header("Data Validation", "✓")
+            # Check if files are uploaded
+            if not self._check_files_uploaded():
+                st.info("📤 Please upload Template and Bulk files first")
+                return
 
-        # Check if files are ready for validation
-        if not self.bid_state.has_required_files():
-            create_status_message(
-                "Upload Template and Bulk files to begin validation", "info"
-            )
+            # Run validation
+            self.validation_result = self._run_validation()
+
+            # Display validation results
+            self._display_validation_results(self.validation_result)
+
+            # Show optimization selection
+            st.markdown("#### Select Optimizations")
+            self.selected_optimizations = render_optimization_checklist()
+
+            # Process Files button
+            self._render_process_button(self.validation_result)
+
+    def _check_files_uploaded(self) -> bool:
+        """Check if required files are uploaded."""
+        return (
+            st.session_state.get("template_df") is not None
+            and st.session_state.get("bulk_60_df") is not None
+        )
+
+    def _run_validation(self) -> Dict:
+        """Run portfolio validation."""
+        try:
+            template_df = st.session_state.get("template_df")
+            bulk_df = st.session_state.get("bulk_60_df")
+
+            result = validate_portfolios(template_df, bulk_df)
+
+            # Store validation result in session state
+            st.session_state.validation_result = result
+            st.session_state.validation_passed = result["valid"]
+
+            return result
+
+        except Exception as e:
+            return {"valid": False, "missing_portfolios": [], "error": str(e)}
+
+    def _display_validation_results(self, result: Dict) -> None:
+        """Display validation results with alerts."""
+        if result.get("error"):
+            show_validation_alert("error", f"Validation error: {result['error']}")
             return
 
-        # Get file data
-        template_uploaded, template_data, template_info = self.bid_state.get_file_data(
-            "template"
-        )
-        bulk_uploaded, bulk_data, bulk_info = self.bid_state.get_file_data("bulk_60")
-
-        if not template_data or bulk_data is None:
-            create_status_message(
-                "File data not available - please re-upload files", "error"
-            )
-            return
-
-        # Perform validation
-        valid, msg, details = self.portfolio_validator.validate_portfolio_matching(
-            template_data, bulk_data
-        )
-
-        # Display validation results
-        if valid:
-            st.success(f"✓ {msg}")
-
-            # REMOVED: Statistics display
-            # No longer showing "rows ready for processing" or "zero sales candidates"
-
-        else:
-            st.error(f"✗ {msg}")
-
-            # Show ALL missing portfolios
-            if details.get("missing_in_template"):
-                st.error(
-                    "The following portfolios are in the Bulk file but not in Template:"
+        if result["valid"]:
+            # Check for ignored portfolios
+            ignored = self._check_ignored_portfolios()
+            if ignored:
+                show_validation_alert(
+                    "info",
+                    f"ℹ️ {len(ignored)} portfolios marked as 'Ignore' will be skipped",
                 )
+            show_validation_alert("success", "✓ All portfolios valid")
+        else:
+            missing = result.get("missing_portfolios", [])
+            if missing:
+                # Filter out excluded portfolios
+                non_excluded = [p for p in missing if p not in EXCLUDED_PORTFOLIOS]
+                if non_excluded:
+                    show_validation_alert(
+                        "error",
+                        f"Missing portfolios found - Reupload Full Template: {', '.join(non_excluded[:5])}",
+                    )
 
-                # Display ALL missing portfolios, each on its own line
-                for portfolio in details["missing_in_template"]:
-                    st.caption(f"• {portfolio}")
+    def _check_ignored_portfolios(self) -> List[str]:
+        """Check for portfolios marked as Ignore."""
+        template_df = st.session_state.get("template_df")
+        if template_df is not None and "Base Bid" in template_df.columns:
+            ignored = template_df[
+                template_df["Base Bid"].astype(str).str.lower() == "ignore"
+            ]["Portfolio Name"].tolist()
+            return ignored
+        return []
 
-                # Add upload new template button
-                st.info("(Bulk file will be kept in memory)")
-                if st.button("Upload New Template", key="upload_new_template_btn"):
-                    st.session_state.show_template_uploader = True
-
-        st.markdown("---")
-
-        # Optimization selection (simplified for Phase 1)
-        self._render_optimization_selection()
-
-        st.markdown("---")
-
-        # Process button - only show if validation passed
-        if valid:
-            self._render_process_button()
-
-    def _render_optimization_selection(self):
-        """Render optimization checkboxes - Phase 1 only Zero Sales."""
-
-        st.subheader("Select Optimizations")
-
-        # Only Zero Sales is enabled in Phase 1
-        col1, col2 = st.columns(2)
-
-        with col1:
-            zero_sales = st.checkbox("Zero Sales", value=True, key="opt_zero_sales")
-            if zero_sales:
-                st.session_state.selected_optimizations = ["zero_sales"]
-
-        with col2:
-            # Future optimizations - all disabled in Phase 1
-            st.checkbox(
-                "Portfolio Bid Optimization", disabled=True, key="opt_portfolio_bid"
-            )
-            st.caption("Coming Soon")
-
-        # Additional rows for future optimizations
-        col3, col4 = st.columns(2)
-
-        with col3:
-            st.checkbox("Budget Optimization", disabled=True, key="opt_budget")
-            st.caption("Coming Soon")
-
-        with col4:
-            st.checkbox("Keyword Optimization", disabled=True, key="opt_keyword")
-            st.caption("Coming Soon")
-
-    def _render_process_button(self):
-        """Render the process files button."""
-
+    def _render_process_button(self, validation_result: Dict) -> None:
+        """Render the Process Files button with proper state handling."""
         col1, col2, col3 = st.columns([1, 2, 1])
 
         with col2:
+            # Check if button should be enabled
+            button_enabled = (
+                validation_result.get("valid", False)
+                and len(st.session_state.get("selected_optimizations", [])) > 0
+                and not st.session_state.get("processing_started", False)
+            )
+
             if st.button(
-                "⚡ PROCESS FILES",
-                key="process_files_btn",
+                "⚡ Process Files",
+                disabled=not button_enabled,
                 use_container_width=True,
                 type="primary",
             ):
-                st.session_state.processing_status = "started"
-                st.session_state.current_view = "output"
+                # Initialize processing state
+                initialize_processing_state()
+
+                # Switch to output panel
+                switch_panel("output")
+
+                # Trigger rerun to show processing
                 st.rerun()
+
+            # Show help text if disabled
+            if not button_enabled:
+                if st.session_state.get("processing_started"):
+                    st.caption("Processing in progress...")
+                elif not validation_result.get("valid", False):
+                    st.caption("Fix validation errors first")
+                elif len(st.session_state.get("selected_optimizations", [])) == 0:
+                    st.caption("Select at least one optimization")
+
+    def check_validation_status(self) -> bool:
+        """Check if validation has passed."""
+        return st.session_state.get("validation_passed", False)
+
+    def get_validation_result(self) -> Optional[Dict]:
+        """Get the stored validation result."""
+        return self.validation_result
+
+    def get_selected_optimizations(self) -> List[str]:
+        """Get selected optimizations."""
+        return self.selected_optimizations
+
+    def run_portfolio_validation(self) -> Dict:
+        """Public method to run validation."""
+        return self._run_validation()
+
+
+# Standalone function for backward compatibility
+def render() -> None:
+    """Render the validation section panel."""
+    section = ValidationSection()
+    section.render()
+
+
+def check_validation_status() -> bool:
+    """Check if validation has passed."""
+    return st.session_state.get("validation_passed", False)
+
+
+def get_validation_result() -> Optional[Dict]:
+    """Get the stored validation result."""
+    return st.session_state.get("validation_result")
+
+
+def run_portfolio_validation() -> Dict:
+    """Public method to run validation."""
+    section = ValidationSection()
+    return section._run_validation()

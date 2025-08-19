@@ -1,95 +1,62 @@
-"""Excluded portfolios list for bid optimization."""
+"""Excluded portfolios list - these portfolios are always filtered out."""
 
-from typing import List, Set
+# List of 10 flat portfolios to exclude from all optimizations
+# These are the actual portfolio names from the specification - Case Sensitive!
+EXCLUDED_PORTFOLIOS = [
+    "Flat 30",
+    "Flat 25",
+    "Flat 40",
+    "Flat 25 | Opt",
+    "Flat 30 | Opt",
+    "Flat 20",
+    "Flat 15",
+    "Flat 40 | Opt",
+    "Flat 20 | Opt",
+    "Flat 15 | Opt",
+]
+
+# Alias for backward compatibility
+FLAT_PORTFOLIOS = EXCLUDED_PORTFOLIOS
 
 
-def get_excluded_portfolios() -> List[str]:
+def is_excluded_portfolio(portfolio_name: str) -> bool:
     """
-    Get list of 10 'Flat' portfolios that should be excluded from processing.
-
-    These portfolios are filtered out during Zero Sales optimization
-    as specified in the PRD requirements.
-
-    Returns:
-        List of portfolio names to exclude (Case Sensitive!)
-    """
-
-    # The 10 predefined 'Flat' portfolios that must be filtered out
-    # EXACT names as specified in PRD - Case Sensitive!
-    excluded_portfolios = [
-        "Flat 30",
-        "Flat 25",
-        "Flat 40",
-        "Flat 25 | Opt",
-        "Flat 30 | Opt",
-        "Flat 20",
-        "Flat 15",
-        "Flat 40 | Opt",
-        "Flat 20 | Opt",
-        "Flat 15 | Opt",
-    ]
-
-    return excluded_portfolios
-
-
-def get_excluded_portfolios_set() -> Set[str]:
-    """Get excluded portfolios as a set for faster lookups."""
-    return set(get_excluded_portfolios())
-
-
-def is_portfolio_excluded(portfolio_name: str) -> bool:
-    """
-    Check if a portfolio name should be excluded from processing.
+    Check if a portfolio is in the excluded list.
 
     Args:
         portfolio_name: Name of the portfolio to check
 
     Returns:
-        True if portfolio should be excluded, False otherwise
+        True if the portfolio should be excluded
     """
-
-    if not portfolio_name:
-        return False
-
-    excluded_set = get_excluded_portfolios_set()
-
-    # Exact match only (Case Sensitive as per PRD)
-    return portfolio_name in excluded_set
+    return portfolio_name in EXCLUDED_PORTFOLIOS
 
 
-def filter_excluded_portfolios(portfolio_list: List[str]) -> List[str]:
+def get_excluded_portfolios() -> list:
     """
-    Filter out excluded portfolios from a list.
-
-    Args:
-        portfolio_list: List of portfolio names
+    Get the list of excluded portfolios.
 
     Returns:
-        Filtered list with excluded portfolios removed
+        List of excluded portfolio names
     """
-
-    excluded_set = get_excluded_portfolios_set()
-    return [p for p in portfolio_list if p not in excluded_set]
+    return EXCLUDED_PORTFOLIOS.copy()
 
 
-def get_exclusion_stats(portfolio_list: List[str]) -> dict:
+def get_excluded_count() -> int:
     """
-    Get statistics about exclusions in a portfolio list.
-
-    Args:
-        portfolio_list: List of portfolio names to check
+    Get the count of excluded portfolios.
 
     Returns:
-        Dictionary with exclusion statistics
+        Number of excluded portfolios
     """
+    return len(EXCLUDED_PORTFOLIOS)
 
-    excluded_set = get_excluded_portfolios_set()
 
-    excluded_found = [p for p in portfolio_list if p in excluded_set]
-
-    return {
-        "total_portfolios": len(portfolio_list),
-        "excluded_count": len(excluded_found),
-        "excluded_names": excluded_found,
-        "remaining_count": len(portfolio_list) - len(excluded_found),
-    }
+# Export the list for easy import
+__all__ = [
+    "EXCLUDED_PORTFOLIOS",
+    "FLAT_PORTFOLIOS",
+    "is_excluded_portfolio",
+    "get_excluded_portfolios",
+    "get_excluded_count",
+]
