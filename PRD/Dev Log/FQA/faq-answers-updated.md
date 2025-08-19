@@ -35,10 +35,8 @@
 ### החלטות עיקריות:
 - **פוקוס:** איפיון מלא רק ל-Zero Sales
 - **Working File בלבד** - אין Clean File כרגע
-- **כל השאר TBC** - 13 אופטימיזציות, Campaigns Optimizer, Data Rova
 
 ### מידע שנמצא במקורות:
-- **13 אופטימיזציות:** Portfolio Bid, Budget Optimization, Keyword Optimization, ASIN Targeting + 9 ללא שמות
 - **48 עמודות:** רשימה מלאה במכתב סעיף 4
 - **Informational columns:** 12,13,14,19,20,24,25,27,37 - אסור למחוק
 - **Max BA:** עמודה Percentage (#35), MAX לפי Campaign ID

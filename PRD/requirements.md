@@ -165,22 +165,7 @@
 • API integration
 • כרגע לא מיושם
 
-## סדרי עדיפויות פיתוח
 
-### Phase 1 (נוכחי)
-• Bid Optimizer עם Zero Sales בלבד
-• Working File בלבד
-• Bulk 60 בלבד
-
-### Phase 2-3 (TBC)
-• 13 אופטימיזציות נוספות
-• Clean File
-• Bulk 7/30
-
-### Phase 4-6 (TBC)
-• Campaigns Optimizer
-• Negation & Harvesting
-• Data Rova Integration
 
 ## קריטריוני קבלה
 
