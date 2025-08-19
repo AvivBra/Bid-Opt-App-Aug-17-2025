@@ -206,16 +206,32 @@ class UploadSection:
                 st.error(f"Bulk File Error: {msg}")
                 return
             
-            # Enhanced validation
-            valid, validation_msg, validation_details = self.bulk_validator.validate_complete(
-                dataframe, bulk_file.name
-            )
+            # Enhanced validation with progress indicator
+            with st.spinner("Validating bulk file data..."):
+                st.write(f"🔍 Starting validation of {len(dataframe):,} rows × {len(dataframe.columns)} columns...")
+                
+                try:
+                    valid, validation_msg, validation_details = self.bulk_validator.validate_complete(
+                        dataframe, bulk_file.name
+                    )
+                    st.write("✅ Validation completed")
+                except Exception as e:
+                    st.error(f"Validation failed with error: {str(e)}")
+                    st.error("Please check your bulk file format and try again")
+                    return
             
             if not valid:
                 st.error(f"Validation Error: {validation_msg}")
                 if validation_details.get('issues'):
-                    for issue in validation_details['issues'][:3]:
-                        st.error(f"• {issue}")
+                    for issue in validation_details['issues']:
+                        # Check if this is debug info (contains emoji and newlines)
+                        if "📊 NULL VALUES DEBUG ANALYSIS:" in issue:
+                            # Display debug info in an expandable section
+                            with st.expander("🔍 Detailed Debug Information", expanded=True):
+                                st.code(issue, language="text")
+                        else:
+                            # Display regular issues as errors
+                            st.error(f"• {issue}")
                 return
             
             # Store using BidState
@@ -236,6 +252,13 @@ class UploadSection:
             if validation_details.get('warnings'):
                 for warning in validation_details['warnings'][:3]:
                     st.warning(f"⚠️ {warning}")
+            
+            # Show debug information if available (even for successful validation)
+            debug_info = validation_details.get('debug_info', {})
+            if debug_info.get('debug_message'):
+                with st.expander("🔍 Data Analysis (High Null Values Detected)", expanded=False):
+                    st.code(debug_info['debug_message'], language="text")
+                    st.info("ℹ️ High null percentages are normal in Amazon bulk files due to sparse data in optional columns.")
             
             # Show zero sales readiness
             if validation_details.get('zero_sales_ready'):

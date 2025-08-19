@@ -20,14 +20,9 @@ class ExcelReader:
             # Read all sheets
             excel_data = pd.read_excel(io.BytesIO(file_data), sheet_name=None)
             
-            # Validate required sheets
-            missing_sheets = []
-            for sheet in TEMPLATE_REQUIRED_SHEETS:
-                if sheet not in excel_data:
-                    missing_sheets.append(sheet)
-            
-            if missing_sheets:
-                return False, f"Missing required sheets: {', '.join(missing_sheets)}", None
+            # Only require Port Values sheet (Top ASINs is optional for Phase 1)
+            if 'Port Values' not in excel_data:
+                return False, "Missing required sheet: Port Values", None
             
             # Clean and validate Port Values data
             port_values_df = excel_data['Port Values']
@@ -36,10 +31,10 @@ class ExcelReader:
             if not validation_msg.startswith("Success"):
                 return False, validation_msg, None
             
-            # Return cleaned data
+            # Return cleaned data (Top ASINs is optional)
             cleaned_data = {
                 'Port Values': cleaned_port_values,
-                'Top ASINs': excel_data.get('Top ASINs', pd.DataFrame())
+                'Top ASINs': excel_data.get('Top ASINs', pd.DataFrame())  # Empty DataFrame if not present
             }
             
             return True, f"Template loaded: {len(cleaned_port_values)} portfolios", cleaned_data

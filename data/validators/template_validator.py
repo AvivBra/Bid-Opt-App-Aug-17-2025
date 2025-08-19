@@ -67,14 +67,9 @@ class TemplateValidator:
     def _validate_structure(self, data_dict: Dict[str, pd.DataFrame]) -> Tuple[bool, str]:
         """Validate the structure of template data."""
         
-        # Check required sheets
-        missing_sheets = []
-        for sheet in self.required_sheets:
-            if sheet not in data_dict or data_dict[sheet] is None:
-                missing_sheets.append(sheet)
-        
-        if missing_sheets:
-            return False, f"Missing required sheets: {', '.join(missing_sheets)}"
+        # Only require Port Values sheet (Top ASINs is optional for Phase 1)
+        if 'Port Values' not in data_dict or data_dict['Port Values'] is None:
+            return False, "Missing required sheet: Port Values"
         
         # Check Port Values columns
         port_values_df = data_dict['Port Values']

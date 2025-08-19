@@ -125,15 +125,70 @@ class BulkValidator:
         if duplicate_rows > 0:
             details['warnings'].append(f"Duplicate rows found: {duplicate_rows}")
         
-        # Check null percentage
+        # Check null percentage with detailed debugging
         total_cells = df.size
         null_cells = df.isnull().sum().sum()
         null_percentage = (null_cells / total_cells) * 100 if total_cells > 0 else 0
         details['null_percentage'] = null_percentage
         
+        # Add detailed debug information
+        details['debug_info'] = {
+            'dataframe_shape': f"{len(df)} rows × {len(df.columns)} columns",
+            'total_cells': total_cells,
+            'null_cells': null_cells,
+            'null_calculation': f"{null_cells} / {total_cells} = {null_percentage:.1f}%",
+            'column_null_breakdown': {}
+        }
+        
+        # Column-by-column null analysis (limit to prevent hanging)
+        for i, col in enumerate(df.columns):
+            if i > 50:  # Limit to first 50 columns to prevent hanging
+                break
+                
+            col_nulls = df[col].isnull().sum()
+            col_null_pct = (col_nulls / len(df)) * 100 if len(df) > 0 else 0
+            
+            # Only get sample values for columns with some data
+            sample_values = []
+            if col_nulls < len(df):  # Has some non-null values
+                try:
+                    sample_values = df[col].dropna().head(2).astype(str).tolist()
+                except:
+                    sample_values = ["Error reading samples"]
+            
+            details['debug_info']['column_null_breakdown'][col] = {
+                'null_count': col_nulls,
+                'null_percentage': round(col_null_pct, 1),
+                'sample_values': sample_values
+            }
+        
+        # Find top 10 columns with most nulls (optimized)
+        col_null_counts = []
+        for col in df.columns[:20]:  # Only check first 20 columns for top nulls
+            null_count = df[col].isnull().sum()
+            col_null_counts.append((col, null_count))
+        
+        col_null_counts.sort(key=lambda x: x[1], reverse=True)
+        details['debug_info']['top_null_columns'] = col_null_counts[:10]
+        
+        # Temporarily show debug info but don't fail validation for high null percentage
+        # This allows Amazon bulk files with naturally sparse data to pass through
         if null_percentage > 50:
-            details['issues'].append(f"Too many null values: {null_percentage:.1f}%")
-            return False, f"File has too many missing values ({null_percentage:.1f}%)", details
+            debug_msg = (
+                f"📊 NULL VALUES DEBUG ANALYSIS:\n"
+                f"DataFrame: {details['debug_info']['dataframe_shape']}\n"
+                f"Total cells: {total_cells:,}\n"
+                f"Null cells: {null_cells:,}\n"
+                f"Calculation: {details['debug_info']['null_calculation']}\n\n"
+                f"TOP 10 COLUMNS WITH MOST NULLS:\n"
+            )
+            for col_name, null_count in details['debug_info']['top_null_columns']:
+                null_pct = (null_count / len(df)) * 100
+                debug_msg += f"• {col_name}: {null_count:,} nulls ({null_pct:.1f}%)\n"
+            
+            # Add as warning instead of error - let file pass validation
+            details['warnings'].append(f"High null percentage ({null_percentage:.1f}%) - this is normal for Amazon bulk files")
+            details['debug_info']['debug_message'] = debug_msg
         
         if null_percentage > 20:
             details['warnings'].append(f"High null percentage: {null_percentage:.1f}%")
