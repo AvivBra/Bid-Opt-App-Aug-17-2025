@@ -1,68 +1,38 @@
-"""Sidebar component for navigation - CLEAN version without any text."""
+"""Simple sidebar for navigation - Only 2 pages."""
 
 import streamlit as st
 
 
 def render_sidebar():
-    """Render the navigation sidebar - MINIMAL."""
+    """Render sidebar with navigation buttons."""
+
+    # Initialize current_page if not exists
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "Bid Optimizer"
 
     with st.sidebar:
-        # Apply custom CSS for sidebar styling
-        st.markdown(
-            """
-       <style>
-       /* Hide all sidebar text elements */
-       section[data-testid="stSidebar"] .element-container {
-           display: none !important;
-       }
-       
-       /* Show only buttons */
-       section[data-testid="stSidebar"] .stButton {
-           display: block !important;
-       }
-       
-       /* Center buttons */
-       section[data-testid="stSidebar"] button {
-           margin: 20px auto;
-           display: block;
-           width: 180px;
-       }
-       
-       /* Sidebar background */
-       section[data-testid="stSidebar"] {
-           background-color: #1a1a1a;
-           width: 200px;
-           padding-top: 50px;
-       }
-       
-       /* Hide all markdown text */
-       section[data-testid="stSidebar"] .stMarkdown {
-           display: none !important;
-       }
-       </style>
-       """,
-            unsafe_allow_html=True,
-        )
-
-        # Main page button
-        if st.button("Main", type="primary", use_container_width=True, key="nav_main"):
-            st.session_state.current_page = "Main"
-            st.rerun()
+        st.markdown("### Navigation")
 
         # Bid Optimizer button
-        if st.button("Bid Optimizer", use_container_width=True, key="nav_bid"):
+        if st.button("Bid Optimizer", key="btn_bid", use_container_width=True):
             st.session_state.current_page = "Bid Optimizer"
             st.rerun()
 
-        # Disabled button - no text
+        # Campaigns Optimizer (disabled)
         st.button(
             "Campaigns Optimizer",
-            disabled=True,
+            key="btn_campaigns",
             use_container_width=True,
-            key="nav_campaigns",
+            disabled=True,
         )
+
+        # Debug info - remove this after testing
+        st.markdown("---")
+        st.write("Current page:", st.session_state.current_page)
 
 
 def get_current_page() -> str:
     """Get the currently selected page."""
-    return st.session_state.get("current_page", "Main")  # Changed default to "Main"
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "Bid Optimizer"
+    return st.session_state.current_page

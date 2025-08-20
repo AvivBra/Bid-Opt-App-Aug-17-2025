@@ -1,10 +1,9 @@
-"""Navigation system for the Bid Optimizer application - Complete version."""
+"""Navigation system for the Bid Optimizer application - Without Main Page."""
 
 import streamlit as st
 from app.ui.sidebar import render_sidebar, get_current_page
 from app.ui.layout import apply_custom_css
 from app.pages.bid_optimizer import BidOptimizerPage
-from app.pages.main_page import MainPage
 
 
 class Navigation:
@@ -12,7 +11,6 @@ class Navigation:
 
     def __init__(self):
         self.pages = {
-            "Main": MainPage(),
             "Bid Optimizer": BidOptimizerPage(),
             "Campaigns Optimizer": None,  # TBC - Phase 2+
         }
