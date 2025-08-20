@@ -11,7 +11,7 @@ class BidOptimizerPage:
 
         # Page title - CENTERED
         st.markdown(
-            "<h1 style='text-align: center;'>BID OPTIMIZER</h1>", unsafe_allow_html=True
+            "<h1 style='text-align: center;'>Bid Optimizer</h1>", unsafe_allow_html=True
         )
         # Optimization selection - CENTERED
         st.markdown(
@@ -24,6 +24,12 @@ class BidOptimizerPage:
             zero_sales = st.checkbox("Zero Sales", value=True, key="opt_zero_sales")
 
         st.markdown("---")
+
+        # הוסף כותרת Upload Files
+        st.markdown(
+            "<h3 style='text-align: center;'>2. Upload Files</h3>",
+            unsafe_allow_html=True,
+        )
 
         # Download Template button - CENTERED ON TOP
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -58,7 +64,7 @@ class BidOptimizerPage:
         ):
             st.markdown("---")
             st.markdown(
-                "<h3 style='text-align: center;'>2.Data Validation</h3>",
+                "<h3 style='text-align: center;'>3.Data Validation</h3>",
                 unsafe_allow_html=True,
             )
 
@@ -82,7 +88,7 @@ class BidOptimizerPage:
         if st.session_state.get("processing_complete"):
             st.markdown("---")
             st.markdown(
-                "<h3 style='text-align: center;'>3.Output Files</h3>",
+                "<h3 style='text-align: center;'>4.Output Files</h3>",
                 unsafe_allow_html=True,
             )
 
