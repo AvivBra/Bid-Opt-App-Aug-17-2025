@@ -12,10 +12,10 @@ def apply_custom_css():
   /* Make headers thinner and bigger */
   h1 {
       font-weight: 300 !important;
-      font-size: 4rem !important;
-      margin-bottom: -30px !important;  /* שיניתי לרווח שלילי יותר גדול */
+      font-size: 3rem !important;
+      margin-bottom: -100px !important;  /* שיניתי לרווח שלילי יותר גדול */
       padding-bottom: 0 !important;
-      line-height: 1 !important;
+      line-height: .5 !important;
   }
   
   /* Fix space after h1 specifically */
@@ -43,14 +43,14 @@ def apply_custom_css():
   
   h2 {
       font-weight: 300 !important;
-      font-size: 2.5rem !important;
+      font-size: 1rem !important;
       margin-top: 0 !important;
       margin-bottom: 0 !important;
   }
   
   h3 {
       font-weight: 300 !important;
-      font-size: 2rem !important;
+      font-size: 1.5rem !important;
       margin-bottom: 0 !important;
   }
   

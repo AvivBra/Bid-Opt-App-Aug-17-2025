@@ -11,12 +11,11 @@ class BidOptimizerPage:
 
         # Page title - CENTERED
         st.markdown(
-            "<h1 style='text-align: center;'>BID OPTIMIZER</h1>", 
-            unsafe_allow_html=True
+            "<h1 style='text-align: center;'>BID OPTIMIZER</h1>", unsafe_allow_html=True
         )
         # Optimization selection - CENTERED
         st.markdown(
-            "<h3 style='text-align: center;'>SELECT OPTIMIZATIONS</h3>",
+            "<h3 style='text-align: center;'>1.Select Optimization</h3>",
             unsafe_allow_html=True,
         )
 
@@ -26,18 +25,18 @@ class BidOptimizerPage:
 
         st.markdown("---")
 
-        # Upload section
-        # st.markdown(
-        #    "<h3 style='text-align: center;'>UPLOAD FILES</h3>", unsafe_allow_html=True
-        # )
-
-        # Template row
-        col1, col2 = st.columns(2)
-        with col1:
+        # Download Template button - CENTERED ON TOP
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
             if st.button("Download Template", use_container_width=True):
                 st.info("Template download coming soon")
 
-        with col2:
+        # Space before upload buttons
+        st.markdown("")
+
+        # Upload files row - both active uploaders side by side
+        col1, col2 = st.columns(2)
+        with col1:
             template_file = st.file_uploader(
                 "Upload Template", type=["xlsx"], key="template_uploader"
             )
@@ -45,9 +44,7 @@ class BidOptimizerPage:
                 st.session_state.template_uploaded = True
                 st.success("✅ Template uploaded!")
 
-        # Bulk files row
-        col1, col2 = st.columns(2)
-        with col1:
+        with col2:
             bulk_file = st.file_uploader(
                 "Bulk 60 Days", type=["xlsx", "csv"], key="bulk_uploader"
             )
@@ -55,29 +52,13 @@ class BidOptimizerPage:
                 st.session_state.bulk_60_uploaded = True
                 st.success("✅ Bulk 60 uploaded!")
 
-        with col2:
-            st.button(
-                "Bulk 30 Days (Coming Soon)", disabled=True, use_container_width=True
-            )
-
-        # Additional bulk files
-        col1, col2 = st.columns(2)
-        with col1:
-            st.button(
-                "Bulk 7 Days (Coming Soon)", disabled=True, use_container_width=True
-            )
-        with col2:
-            st.button(
-                "Data Rova (Coming Soon)", disabled=True, use_container_width=True
-            )
-
         # Validation section
         if st.session_state.get("template_uploaded") or st.session_state.get(
             "bulk_60_uploaded"
         ):
             st.markdown("---")
             st.markdown(
-                "<h3 style='text-align: center;'>DATA VALIDATION</h3>",
+                "<h3 style='text-align: center;'>2.Data Validation</h3>",
                 unsafe_allow_html=True,
             )
 
@@ -101,7 +82,7 @@ class BidOptimizerPage:
         if st.session_state.get("processing_complete"):
             st.markdown("---")
             st.markdown(
-                "<h3 style='text-align: center;'>OUTPUT FILES</h3>",
+                "<h3 style='text-align: center;'>3.Output Files</h3>",
                 unsafe_allow_html=True,
             )
 

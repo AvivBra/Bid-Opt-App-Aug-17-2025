@@ -11,7 +11,7 @@ def render_sidebar():
         st.session_state.current_page = "Bid Optimizer"
 
     with st.sidebar:
-        st.markdown("### Navigation")
+        # Removed: st.markdown("### Navigation")
 
         # Bid Optimizer button
         if st.button("Bid Optimizer", key="btn_bid", use_container_width=True):
@@ -26,9 +26,8 @@ def render_sidebar():
             disabled=True,
         )
 
-        # Debug info - remove this after testing
-        st.markdown("---")
-        st.write("Current page:", st.session_state.current_page)
+        # Removed: st.markdown("---")
+        # Removed: st.write("Current page:", st.session_state.current_page)
 
 
 def get_current_page() -> str:
