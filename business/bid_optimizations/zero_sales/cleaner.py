@@ -7,270 +7,273 @@ from business.common.portfolio_filter import PortfolioFilter
 
 
 class ZeroSalesCleaner:
-    """Cleans data for Zero Sales optimization processing."""
+    """
+    Cleans and filters data for Zero Sales optimization.
+
+    Process:
+    1. Split by Entity type FIRST (before any filtering)
+    2. Filter Units = 0 (only on Targeting)
+    3. Remove excluded 'Flat' portfolios
+    4. Remove portfolios marked as 'Ignore'
+    """
 
     def __init__(self):
         self.logger = logging.getLogger("optimization.zero_sales.cleaner")
         self.portfolio_filter = PortfolioFilter()
+
+        # 10 excluded portfolios (case sensitive)
+        self.excluded_portfolios = [
+            "Flat 30",
+            "Flat 25",
+            "Flat 40",
+            "Flat 25 | Opt",
+            "Flat 30 | Opt",
+            "Flat 20",
+            "Flat 15",
+            "Flat 40 | Opt",
+            "Flat 20 | Opt",
+            "Flat 15 | Opt",
+        ]
 
     def clean(
         self,
         template_data: Dict[str, pd.DataFrame],
         bulk_data: pd.DataFrame,
         column_mapping: Dict[str, str],
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, Any]]:
         """
         Clean and filter data for Zero Sales processing.
 
-        Args:
-            template_data: Template data dictionary
-            bulk_data: Raw bulk data DataFrame
-            column_mapping: Column name mappings
-
-        Returns:
-            Tuple of (cleaned_dataframe, cleaning_details)
+        Returns dictionary with separate sheets for Targeting and Bidding Adjustment.
         """
 
         cleaning_details = {
-            "original_rows": len(bulk_data),
-            "final_rows": 0,
-            "cleaning_steps": [],
-            "filter_details": {},
-            "data_quality": {},
-            "warnings": [],
+            "input_rows": len(bulk_data),
+            "entity_split": {},
+            "filtering": {},
+            "output_rows": {},
         }
 
-        self.logger.info(f"Starting Zero Sales data cleaning: {len(bulk_data)} rows")
+        self.logger.info(f"Starting Zero Sales cleaning: {len(bulk_data)} input rows")
 
-        # Step 1: Basic data cleaning
-        current_df, basic_details = self._basic_data_cleaning(bulk_data, column_mapping)
-        cleaning_details["cleaning_steps"].append(("basic_cleaning", basic_details))
+        # STEP 1: Split by Entity type FIRST (before any filtering)
+        split_data = self._split_by_entity(bulk_data, column_mapping)
+        cleaning_details["entity_split"] = {
+            "targeting": len(split_data.get("Targeting", pd.DataFrame())),
+            "bidding_adjustment": len(
+                split_data.get("Bidding Adjustment", pd.DataFrame())
+            ),
+            "product_ad": len(split_data.get("Product Ad", pd.DataFrame())),
+        }
 
-        # Step 2: Apply portfolio filters - FIXED: using correct column name
-        portfolio_col = column_mapping.get(
-            "portfolio", "Portfolio Name (Informational only)"
-        )
-        units_col = column_mapping.get("units")
-
-        if portfolio_col and units_col:
-            current_df, filter_details = self.portfolio_filter.apply_all_filters(
-                current_df, portfolio_col, units_col, template_data
+        # STEP 2: Apply filters ONLY to Targeting sheet
+        if "Targeting" in split_data and not split_data["Targeting"].empty:
+            # Filter Units = 0
+            targeting_df = self._filter_zero_units(
+                split_data["Targeting"], column_mapping
             )
-            cleaning_details["filter_details"] = filter_details
-            cleaning_details["cleaning_steps"].append(
-                ("portfolio_filtering", filter_details)
+            cleaning_details["filtering"]["after_units_filter"] = len(targeting_df)
+
+            # Remove excluded portfolios
+            targeting_df = self._remove_excluded_portfolios(
+                targeting_df, column_mapping
             )
+            cleaning_details["filtering"]["after_excluded_filter"] = len(targeting_df)
 
-        # Step 3: Data quality checks
-        quality_details = self._perform_quality_checks(current_df, column_mapping)
-        cleaning_details["data_quality"] = quality_details
-        cleaning_details["cleaning_steps"].append(("quality_checks", quality_details))
+            # Remove ignored portfolios
+            targeting_df = self._remove_ignored_portfolios(
+                targeting_df, template_data, column_mapping
+            )
+            cleaning_details["filtering"]["after_ignored_filter"] = len(targeting_df)
 
-        # Step 4: Final data preparation
-        current_df, prep_details = self._prepare_for_processing(
-            current_df, column_mapping, template_data
+            split_data["Targeting"] = targeting_df
+
+        # STEP 3: Remove Product Ad sheet (not used in Zero Sales)
+        if "Product Ad" in split_data:
+            del split_data["Product Ad"]
+
+        # Final row counts
+        cleaning_details["output_rows"] = {
+            sheet: len(df) for sheet, df in split_data.items()
+        }
+
+        total_output = sum(len(df) for df in split_data.values())
+        self.logger.info(
+            f"Cleaning complete: {len(bulk_data)} -> {total_output} rows "
+            f"({len(split_data)} sheets)"
         )
-        cleaning_details["cleaning_steps"].append(("data_preparation", prep_details))
 
-        # Final statistics
-        cleaning_details["final_rows"] = len(current_df)
+        return split_data, cleaning_details
 
-        success_msg = f"Data cleaning complete: {cleaning_details['original_rows']} -> {cleaning_details['final_rows']} rows"
-        self.logger.info(success_msg)
-
-        return current_df, cleaning_details
-
-    def _basic_data_cleaning(
+    def _split_by_entity(
         self, df: pd.DataFrame, column_mapping: Dict[str, str]
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Perform basic data cleaning operations."""
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Split data by Entity type.
 
-        details = {
-            "initial_rows": len(df),
-            "empty_rows_removed": 0,
-            "duplicate_rows_removed": 0,
-            "invalid_values_fixed": 0,
-        }
+        Returns:
+            Dictionary with keys:
+            - "Targeting": Keyword + Product Targeting
+            - "Bidding Adjustment": Bidding Adjustment rows
+            - "Product Ad": Product Ad rows (will be removed later)
+        """
 
-        # Make a copy to avoid modifying original
-        cleaned_df = df.copy()
+        entity_col = column_mapping.get("entity", "Entity")
 
-        # Remove completely empty rows
-        before = len(cleaned_df)
-        cleaned_df = cleaned_df.dropna(how="all")
-        details["empty_rows_removed"] = before - len(cleaned_df)
+        if entity_col not in df.columns:
+            self.logger.error(f"Entity column '{entity_col}' not found")
+            return {"Targeting": df}  # Fallback: treat all as Targeting
 
-        # Remove duplicate rows
-        before = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        details["duplicate_rows_removed"] = before - len(cleaned_df)
+        result = {}
 
-        # Clean numeric columns
-        numeric_columns = ["units", "clicks", "impressions", "spend", "sales", "orders"]
-        for col_type in numeric_columns:
-            if col_type in column_mapping:
-                col_name = column_mapping[col_type]
-                if col_name in cleaned_df.columns:
-                    # Convert to numeric, invalid values become NaN
-                    cleaned_df[col_name] = pd.to_numeric(
-                        cleaned_df[col_name], errors="coerce"
-                    )
-                    # Fill NaN with 0 for numeric columns
-                    cleaned_df[col_name] = cleaned_df[col_name].fillna(0)
-                    details["invalid_values_fixed"] += cleaned_df[col_name].isna().sum()
+        # Targeting sheet: Keyword + Product Targeting
+        targeting_mask = df[entity_col].isin(["Keyword", "Product Targeting"])
+        result["Targeting"] = df[targeting_mask].copy()
 
-        # FIXED: Clean portfolio names using exact column name
-        portfolio_col = column_mapping.get(
-            "portfolio", "Portfolio Name (Informational only)"
+        # Bidding Adjustment sheet
+        ba_mask = df[entity_col] == "Bidding Adjustment"
+        result["Bidding Adjustment"] = df[ba_mask].copy()
+
+        # Product Ad sheet (will be removed)
+        pa_mask = df[entity_col] == "Product Ad"
+        result["Product Ad"] = df[pa_mask].copy()
+
+        self.logger.info(
+            f"Entity split: Targeting={len(result['Targeting'])}, "
+            f"BA={len(result['Bidding Adjustment'])}, "
+            f"Product Ad={len(result['Product Ad'])}"
         )
-        if portfolio_col in cleaned_df.columns:
-            cleaned_df[portfolio_col] = (
-                cleaned_df[portfolio_col].astype(str).str.strip()
-            )
-            # Remove rows with invalid portfolio names
-            cleaned_df = cleaned_df[
-                ~cleaned_df[portfolio_col].isin(["nan", "", "None"])
-            ]
 
-        details["final_rows"] = len(cleaned_df)
+        return result
 
-        return cleaned_df, details
-
-    def _perform_quality_checks(
+    def _filter_zero_units(
         self, df: pd.DataFrame, column_mapping: Dict[str, str]
-    ) -> Dict[str, Any]:
-        """Perform data quality checks."""
+    ) -> pd.DataFrame:
+        """Filter to only rows with Units = 0."""
 
-        quality = {
-            "completeness": {},
-            "validity": {},
-            "consistency": {},
-            "overall_score": 0,
-        }
+        units_col = column_mapping.get("units", "Units")
 
-        if df.empty:
-            return quality
+        if units_col not in df.columns:
+            self.logger.error(f"Units column '{units_col}' not found")
+            return df
 
-        # Check completeness for critical columns
-        critical_columns = ["portfolio", "units", "bid", "campaign", "entity"]
-        completeness_scores = []
+        # Convert to numeric and filter
+        df[units_col] = pd.to_numeric(df[units_col], errors="coerce")
+        zero_units_df = df[df[units_col] == 0].copy()
 
-        for col_type in critical_columns:
-            if col_type in column_mapping:
-                col_name = column_mapping[col_type]
-                if col_name in df.columns:
-                    non_null_pct = df[col_name].notna().mean()
-                    quality["completeness"][col_type] = non_null_pct
-                    completeness_scores.append(non_null_pct)
+        filtered_count = len(df) - len(zero_units_df)
+        self.logger.info(f"Filtered {filtered_count} rows with Units != 0")
 
-        # Check validity
-        if "bid" in column_mapping:
-            bid_col = column_mapping["bid"]
-            if bid_col in df.columns:
-                valid_bids = df[bid_col].between(0.02, 4.0, inclusive="both")
-                quality["validity"]["bid_range"] = valid_bids.mean()
+        return zero_units_df
 
-        # Check consistency - FIXED: using correct column name
+    def _remove_excluded_portfolios(
+        self, df: pd.DataFrame, column_mapping: Dict[str, str]
+    ) -> pd.DataFrame:
+        """Remove rows from 10 excluded 'Flat' portfolios."""
+
         portfolio_col = column_mapping.get(
             "portfolio", "Portfolio Name (Informational only)"
         )
-        if portfolio_col in df.columns:
-            unique_portfolios = df[portfolio_col].nunique()
-            quality["consistency"]["unique_portfolios"] = unique_portfolios
 
-        # Calculate overall score
-        if completeness_scores:
-            quality["overall_score"] = sum(completeness_scores) / len(
-                completeness_scores
-            )
+        if portfolio_col not in df.columns:
+            self.logger.warning(f"Portfolio column '{portfolio_col}' not found")
+            return df
 
-        return quality
+        # Filter out excluded portfolios (case sensitive)
+        excluded_mask = df[portfolio_col].isin(self.excluded_portfolios)
+        filtered_df = df[~excluded_mask].copy()
 
-    def _prepare_for_processing(
+        excluded_count = excluded_mask.sum()
+        if excluded_count > 0:
+            self.logger.info(f"Removed {excluded_count} rows from excluded portfolios")
+
+        return filtered_df
+
+    def _remove_ignored_portfolios(
         self,
         df: pd.DataFrame,
-        column_mapping: Dict[str, str],
         template_data: Dict[str, pd.DataFrame],
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Prepare data for processing by adding necessary columns."""
+        column_mapping: Dict[str, str],
+    ) -> pd.DataFrame:
+        """Remove rows from portfolios marked as 'Ignore' in template."""
 
-        details = {"columns_added": [], "template_mappings": 0, "rows_prepared": 0}
-
-        if df.empty:
-            return df, details
-
-        prepared_df = df.copy()
-
-        # Add template data mapping - FIXED: using correct column name
         portfolio_col = column_mapping.get(
             "portfolio", "Portfolio Name (Informational only)"
         )
-        if portfolio_col in prepared_df.columns and "Port Values" in template_data:
-            port_values = template_data["Port Values"]
 
-            # Create mapping dictionaries
-            base_bid_map = dict(
-                zip(port_values["Portfolio Name"], port_values["Base Bid"])
-            )
-            target_cpa_map = dict(
-                zip(port_values["Portfolio Name"], port_values["Target CPA"])
-            )
+        if portfolio_col not in df.columns:
+            self.logger.warning(f"Portfolio column '{portfolio_col}' not found")
+            return df
 
-            # Map values
-            prepared_df["Template_Base_Bid"] = prepared_df[portfolio_col].map(
-                base_bid_map
-            )
-            prepared_df["Template_Target_CPA"] = prepared_df[portfolio_col].map(
-                target_cpa_map
-            )
+        # Get Port Values sheet
+        port_values = template_data.get("Port Values", pd.DataFrame())
 
-            details["columns_added"] = ["Template_Base_Bid", "Template_Target_CPA"]
-            details["template_mappings"] = (
-                prepared_df["Template_Base_Bid"].notna().sum()
-            )
+        if port_values.empty:
+            self.logger.warning("Port Values sheet is empty")
+            return df
 
-        # Ensure Entity column exists for split
-        if "entity" in column_mapping:
-            entity_col = column_mapping["entity"]
-            if entity_col not in prepared_df.columns:
-                prepared_df["Entity"] = "Unknown"
-                details["columns_added"].append("Entity")
+        # Find portfolios with Base Bid = 'Ignore'
+        if "Base Bid" not in port_values.columns:
+            self.logger.warning("Base Bid column not found in Port Values")
+            return df
 
-        details["rows_prepared"] = len(prepared_df)
+        # Convert Base Bid to string and check for 'Ignore' (case insensitive)
+        port_values["Base Bid"] = port_values["Base Bid"].astype(str)
+        ignored_mask = port_values["Base Bid"].str.lower() == "ignore"
+        ignored_portfolios = port_values[ignored_mask]["Portfolio Name"].tolist()
 
-        return prepared_df, details
+        if ignored_portfolios:
+            # Filter out ignored portfolios
+            ignored_data_mask = df[portfolio_col].isin(ignored_portfolios)
+            filtered_df = df[~ignored_data_mask].copy()
+
+            ignored_count = ignored_data_mask.sum()
+            if ignored_count > 0:
+                self.logger.info(
+                    f"Removed {ignored_count} rows from {len(ignored_portfolios)} "
+                    f"ignored portfolios"
+                )
+
+            return filtered_df
+
+        return df
 
     def get_cleaning_summary(self, cleaning_details: Dict[str, Any]) -> str:
         """Generate a human-readable cleaning summary."""
 
-        summary_lines = [
-            f"Data Cleaning Summary:",
-            f"Original rows: {cleaning_details.get('original_rows', 0)}",
-            f"Final rows: {cleaning_details.get('final_rows', 0)}",
-        ]
+        summary_parts = []
 
-        # Add step details
-        for step_name, step_details in cleaning_details.get("cleaning_steps", []):
-            if step_name == "basic_cleaning":
-                if step_details.get("empty_rows_removed", 0) > 0:
-                    summary_lines.append(
-                        f"• Removed {step_details['empty_rows_removed']} empty rows"
-                    )
-                if step_details.get("duplicate_rows_removed", 0) > 0:
-                    summary_lines.append(
-                        f"• Removed {step_details['duplicate_rows_removed']} duplicate rows"
-                    )
+        # Input
+        summary_parts.append(f"Input: {cleaning_details.get('input_rows', 0)} rows")
 
-            elif step_name == "portfolio_filtering":
-                filtered = step_details.get("total_filtered", 0)
-                if filtered > 0:
-                    summary_lines.append(
-                        f"• Filtered {filtered} rows (excluded/ignored portfolios + non-zero sales)"
-                    )
+        # Entity split
+        if "entity_split" in cleaning_details:
+            split = cleaning_details["entity_split"]
+            summary_parts.append(
+                f"Split: Targeting={split.get('targeting', 0)}, "
+                f"BA={split.get('bidding_adjustment', 0)}"
+            )
 
-        # Add quality score
-        quality_score = cleaning_details.get("data_quality", {}).get("overall_score", 0)
-        if quality_score > 0:
-            summary_lines.append(f"• Data quality score: {quality_score:.1%}")
+        # Filtering
+        if "filtering" in cleaning_details:
+            filt = cleaning_details["filtering"]
+            if "after_units_filter" in filt:
+                summary_parts.append(
+                    f"After Units=0: {filt['after_units_filter']} rows"
+                )
+            if "after_excluded_filter" in filt:
+                summary_parts.append(
+                    f"After removing Flat: {filt['after_excluded_filter']} rows"
+                )
+            if "after_ignored_filter" in filt:
+                summary_parts.append(
+                    f"After removing Ignore: {filt['after_ignored_filter']} rows"
+                )
 
-        return "\n".join(summary_lines)
+        # Output
+        if "output_rows" in cleaning_details:
+            output = cleaning_details["output_rows"]
+            total = sum(output.values())
+            summary_parts.append(f"Output: {total} rows in {len(output)} sheets")
+
+        return " | ".join(summary_parts)

@@ -1,4 +1,4 @@
-"""Zero Sales optimization bid processing - SIMPLIFIED."""
+"""Zero Sales optimization bid processing - FIXED according to specification."""
 
 import pandas as pd
 import numpy as np
@@ -15,7 +15,7 @@ class ZeroSalesProcessor:
 
         # Bid range constraints
         self.min_bid = MIN_BID  # 0.02
-        self.max_bid = MAX_BID  # 4.00
+        self.max_bid = 1.25  # Specification says 1.25, not 4.00
 
         # Processing statistics
         self.stats = {
@@ -28,24 +28,32 @@ class ZeroSalesProcessor:
         }
 
     def process(
-        self, df: pd.DataFrame, template_data: pd.DataFrame
+        self,
+        targeting_df: pd.DataFrame,
+        port_values_df: pd.DataFrame,
+        bidding_adjustment_df: pd.DataFrame,
+        column_mapping: Dict[str, str],
     ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, Any]]:
         """
         Process Zero Sales bid calculations using the 4 defined cases.
 
-        SIMPLIFIED VERSION - Direct and efficient processing.
+        Args:
+            targeting_df: Targeting data (already filtered)
+            port_values_df: Port Values from template
+            bidding_adjustment_df: Bidding Adjustment data for Max BA calculation
+            column_mapping: Column name mapping
         """
 
         processing_details = {
-            "input_rows": len(df),
+            "input_rows": len(targeting_df),
             "processed_rows": 0,
             "case_statistics": {},
             "errors": [],
         }
 
-        self.logger.info(f"Starting Zero Sales processing: {len(df)} rows")
+        self.logger.info(f"Starting Zero Sales processing: {len(targeting_df)} rows")
 
-        if df.empty:
+        if targeting_df.empty:
             return {}, processing_details
 
         # Reset statistics
@@ -58,14 +66,39 @@ class ZeroSalesProcessor:
             "processing_errors": 0,
         }
 
-        # Merge template data with bulk data
-        processed_df = self._merge_with_template(df, template_data)
+        # STEP 1: Calculate Max BA for each Campaign ID
+        max_ba_map = self._calculate_max_ba(bidding_adjustment_df, column_mapping)
 
-        # Apply bid calculations
-        processed_df = self._calculate_all_bids(processed_df)
+        # STEP 2: Merge template data with targeting data
+        processed_df = self._merge_with_template(
+            targeting_df, port_values_df, column_mapping
+        )
 
-        # Split into output sheets
-        result = self._split_to_sheets(processed_df)
+        # STEP 3: Add Max BA column
+        campaign_col = column_mapping.get("campaign_id", "Campaign ID")
+        if campaign_col in processed_df.columns:
+            processed_df["Max BA"] = (
+                processed_df[campaign_col].map(max_ba_map).fillna(0)
+            )
+        else:
+            processed_df["Max BA"] = 0
+
+        # STEP 4: Calculate Adj. CPA
+        processed_df["Adj. CPA"] = processed_df.apply(
+            lambda row: self._calculate_adj_cpa(row), axis=1
+        )
+
+        # STEP 5: Calculate new bids for all rows (Old Bid will be saved inside this function)
+        processed_df = self._calculate_all_bids(processed_df, column_mapping)
+
+        # STEP 6: Add remaining helper columns and arrange them
+        processed_df = self._add_helper_columns(processed_df)
+
+        # STEP 7: Set Operation = Update
+        processed_df["Operation"] = "Update"
+
+        # Create result dictionary
+        result = {"Targeting": processed_df}
 
         # Update processing details
         processing_details["processed_rows"] = len(processed_df)
@@ -75,54 +108,111 @@ class ZeroSalesProcessor:
 
         return result, processing_details
 
+    def _calculate_max_ba(
+        self, ba_df: pd.DataFrame, column_mapping: Dict[str, str]
+    ) -> Dict[str, float]:
+        """Calculate maximum Percentage for each Campaign ID from Bidding Adjustment data."""
+
+        if ba_df.empty:
+            return {}
+
+        campaign_col = column_mapping.get("campaign_id", "Campaign ID")
+        percentage_col = column_mapping.get("percentage", "Percentage")
+
+        if campaign_col not in ba_df.columns or percentage_col not in ba_df.columns:
+            self.logger.warning("Campaign ID or Percentage column not found in BA data")
+            return {}
+
+        # Convert Percentage to numeric
+        ba_df[percentage_col] = pd.to_numeric(ba_df[percentage_col], errors="coerce")
+
+        # Group by Campaign ID and get max Percentage
+        max_ba = ba_df.groupby(campaign_col)[percentage_col].max().to_dict()
+
+        self.logger.info(f"Calculated Max BA for {len(max_ba)} campaigns")
+
+        return max_ba
+
     def _merge_with_template(
-        self, df: pd.DataFrame, template_data: pd.DataFrame
+        self,
+        df: pd.DataFrame,
+        port_values_df: pd.DataFrame,
+        column_mapping: Dict[str, str],
     ) -> pd.DataFrame:
-        """Merge bulk data with template portfolio data."""
+        """Merge targeting data with template portfolio data."""
 
         merged = df.copy()
 
-        # Find portfolio column in bulk data
-        portfolio_col = None
-        for col in df.columns:
-            if "portfolio" in col.lower():
-                portfolio_col = col
-                break
+        # Find portfolio column
+        portfolio_col = column_mapping.get(
+            "portfolio", "Portfolio Name (Informational only)"
+        )
 
-        if portfolio_col and not template_data.empty:
-            # Merge with template on portfolio name
+        if portfolio_col not in merged.columns:
+            self.logger.error(f"Portfolio column '{portfolio_col}' not found")
+            return merged
+
+        # Merge with Port Values
+        if not port_values_df.empty and "Portfolio Name" in port_values_df.columns:
+            # Prepare template data for merge
             template_cols = ["Portfolio Name", "Base Bid", "Target CPA"]
-            template_subset = template_data[template_cols].copy()
-            template_subset.columns = ["Portfolio_Template", "Base Bid", "Target CPA"]
+            template_subset = port_values_df[template_cols].copy()
 
+            # Convert Base Bid to numeric (handle 'Ignore' values)
+            template_subset["Base Bid"] = pd.to_numeric(
+                template_subset["Base Bid"], errors="coerce"
+            )
+            template_subset["Target CPA"] = pd.to_numeric(
+                template_subset["Target CPA"], errors="coerce"
+            )
+
+            # Merge
             merged = pd.merge(
                 merged,
                 template_subset,
                 left_on=portfolio_col,
-                right_on="Portfolio_Template",
+                right_on="Portfolio Name",
                 how="left",
             )
 
-            # Clean up
-            if "Portfolio_Template" in merged.columns:
-                merged.drop("Portfolio_Template", axis=1, inplace=True)
+            # Clean up duplicate column
+            if "Portfolio Name" in merged.columns and portfolio_col != "Portfolio Name":
+                merged.drop("Portfolio Name", axis=1, inplace=True)
 
         return merged
 
-    def _calculate_all_bids(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate new bids for all rows."""
+    def _calculate_adj_cpa(self, row: pd.Series) -> float:
+        """Calculate Adjusted CPA = Target CPA × (1 + Max BA/100)."""
+
+        target_cpa = row.get("Target CPA", np.nan)
+        max_ba = row.get("Max BA", 0)
+
+        if pd.isna(target_cpa):
+            return np.nan
+
+        return target_cpa * (1 + max_ba / 100)
+
+    def _calculate_all_bids(
+        self, df: pd.DataFrame, column_mapping: Dict[str, str]
+    ) -> pd.DataFrame:
+        """Calculate new bids for all rows using the 4 cases."""
 
         processed = df.copy()
 
         # Find relevant columns
-        bid_col = self._find_column(processed, ["bid", "max bid"])
-        campaign_col = self._find_column(processed, ["campaign"])
+        bid_col = column_mapping.get("bid", "Bid")
+        campaign_name_col = column_mapping.get(
+            "campaign_name", "Campaign Name (Informational only)"
+        )
+        clicks_col = column_mapping.get("clicks", "Clicks")
 
-        if not bid_col:
-            self.logger.error("Bid column not found")
-            return processed
+        # IMPORTANT: Save Old Bid BEFORE any calculations
+        # Copy current Bid values to Old Bid column
+        processed["Old Bid"] = processed[bid_col].copy()
 
-        # Add calculation columns
+        # Initialize calculation columns
+        processed["calc1"] = 0.0
+        processed["calc2"] = 0.0
         processed["New_Bid"] = 0.0
         processed["Bid_Case"] = ""
         processed["Bid_Error"] = False
@@ -130,150 +220,139 @@ class ZeroSalesProcessor:
         # Process each row
         for idx in processed.index:
             try:
-                new_bid, case = self._calculate_single_bid(processed.loc[idx])
+                row = processed.loc[idx]
 
+                # Get values
+                base_bid = row.get("Base Bid", 0.5)
+                target_cpa = row.get("Target CPA", np.nan)
+                adj_cpa = row.get("Adj. CPA", np.nan)
+                max_ba = row.get("Max BA", 0)
+                clicks = pd.to_numeric(row.get(clicks_col, 0), errors="coerce")
+                if pd.isna(clicks):
+                    clicks = 0
+
+                # Check campaign name for "up and"
+                campaign_name = str(row.get(campaign_name_col, "")).lower()
+                has_up_and = "up and" in campaign_name
+                has_target_cpa = not pd.isna(target_cpa)
+
+                # Apply cases
+                if not has_target_cpa and has_up_and:
+                    # Case A: No Target CPA + "up and"
+                    new_bid = base_bid * 0.5
+                    case = "A"
+
+                elif not has_target_cpa and not has_up_and:
+                    # Case B: No Target CPA + no "up and"
+                    new_bid = base_bid
+                    case = "B"
+
+                elif has_target_cpa and has_up_and:
+                    # Case C: Has Target CPA + "up and"
+                    calc1 = adj_cpa * 0.5 / (clicks + 1)
+                    calc2 = calc1 - (base_bid * 0.5)
+
+                    if calc1 <= 0:
+                        new_bid = calc2
+                    else:
+                        new_bid = base_bid * 0.5
+
+                    processed.at[idx, "calc1"] = calc1
+                    processed.at[idx, "calc2"] = calc2
+                    case = "C"
+
+                else:
+                    # Case D: Has Target CPA + no "up and"
+                    calc1 = adj_cpa / (clicks + 1)
+                    calc2 = calc1 - (base_bid / (1 + max_ba / 100))
+
+                    if calc1 <= 0:
+                        new_bid = calc2
+                    else:
+                        new_bid = base_bid / (1 + max_ba / 100)
+
+                    processed.at[idx, "calc1"] = calc1
+                    processed.at[idx, "calc2"] = calc2
+                    case = "D"
+
+                # Apply bid constraints
+                new_bid = max(self.min_bid, min(new_bid, self.max_bid))
+                new_bid = round(new_bid, 3)  # Round to 3 decimal places
+
+                # Update row
+                processed.at[idx, bid_col] = new_bid  # Update Bid column
                 processed.at[idx, "New_Bid"] = new_bid
                 processed.at[idx, "Bid_Case"] = case
 
-                # Update stats
-                self.stats[f"case_{case.lower()}_count"] += 1
-
-                # Check range
+                # Check if bid is out of range for error marking
                 if new_bid < self.min_bid or new_bid > self.max_bid:
                     processed.at[idx, "Bid_Error"] = True
                     self.stats["out_of_range_count"] += 1
+
+                # Update case statistics
+                self.stats[f"case_{case.lower()}_count"] += 1
 
             except Exception as e:
                 self.logger.error(f"Error processing row {idx}: {str(e)}")
                 processed.at[idx, "Bid_Error"] = True
                 self.stats["processing_errors"] += 1
 
-        # Update the original bid column with new bid
-        processed[bid_col] = processed["New_Bid"]
-
         return processed
 
-    def _calculate_single_bid(self, row: pd.Series) -> Tuple[float, str]:
-        """
-        Calculate bid for a single row using the 4 cases.
-
-        Case A: No Target CPA + campaign contains "up and" -> Base Bid * 0.5
-        Case B: No Target CPA + campaign doesn't contain "up and" -> Base Bid
-        Case C: Has Target CPA + campaign contains "up and" -> Complex calculation
-        Case D: Has Target CPA + campaign doesn't contain "up and" -> Complex calculation
-        """
-
-        # Get values
-        base_bid = self._get_numeric_value(row, "Base Bid", 0.5)
-        target_cpa = self._get_numeric_value(row, "Target CPA", None)
-
-        # Check campaign name for "up and"
-        campaign_name = ""
-        for col in row.index:
-            if "campaign" in col.lower() and "informational" in col.lower():
-                campaign_name = str(row[col]).lower()
-                break
-
-        has_up_and = "up and" in campaign_name
-        has_target_cpa = target_cpa is not None and target_cpa > 0
-
-        # Apply cases
-        if not has_target_cpa and has_up_and:
-            # Case A
-            new_bid = base_bid * 0.5
-            case = "A"
-        elif not has_target_cpa and not has_up_and:
-            # Case B
-            new_bid = base_bid
-            case = "B"
-        elif has_target_cpa and has_up_and:
-            # Case C - Complex calculation (simplified for now)
-            new_bid = min(base_bid * 1.2, target_cpa * 0.3)
-            case = "C"
-        else:
-            # Case D - Complex calculation (simplified for now)
-            new_bid = min(base_bid * 1.5, target_cpa * 0.4)
-            case = "D"
-
-        # Ensure within range
-        new_bid = max(self.min_bid, min(new_bid, self.max_bid))
-
-        return round(new_bid, 2), case
-
-    def _split_to_sheets(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-        """Split processed data into output sheets."""
-
-        result = {}
-
-        # Find entity column
-        entity_col = self._find_column(df, ["entity"])
-
-        if entity_col:
-            # Keywords and Product Targeting sheet
-            targeting_entities = ["Keyword", "Product Targeting"]
-            targeting_df = df[df[entity_col].isin(targeting_entities)].copy()
-
-            if not targeting_df.empty:
-                # Add 7 helper columns as per spec
-                targeting_df = self._add_helper_columns(targeting_df)
-                result["Targeting"] = targeting_df
-
-            # Bidding Adjustment sheet
-            bidding_df = df[df[entity_col] == "Bidding Adjustment"].copy()
-            if not bidding_df.empty:
-                result["Bidding Adjustment"] = bidding_df
-        else:
-            # If no entity column, put all in Targeting
-            df_copy = df.copy()
-            df_copy = self._add_helper_columns(df_copy)
-            result["Targeting"] = df_copy
-
-        # Set Operation to Update for all sheets
-        for sheet_name in result:
-            result[sheet_name]["Operation"] = "Update"
-
-        return result
-
     def _add_helper_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add 7 helper columns to Targeting sheet."""
+        """
+        Ensure all 7 helper columns are present in the correct order.
+
+        Helper columns (in order):
+        1. Old Bid
+        2. calc1
+        3. calc2
+        4. Target CPA
+        5. Base Bid
+        6. Adj. CPA
+        7. Max BA
+        """
 
         df_with_helpers = df.copy()
 
-        # Add helper columns with placeholder values
-        df_with_helpers["Max BA used"] = 0.0
-        df_with_helpers["Max BA - Informational"] = 0.0
-        df_with_helpers["Adj CPA"] = 0.0
-        df_with_helpers["30% of ADJ CPA"] = 0.0
-        df_with_helpers["125% Base"] = df_with_helpers.get("Base Bid", 0) * 1.25
-        df_with_helpers["Max Bid Helper"] = 0.0
-        df_with_helpers["Min Bid Helper"] = 0.0
+        # Ensure all helper columns exist
+        helper_columns = [
+            "Old Bid",
+            "calc1",
+            "calc2",
+            "Target CPA",
+            "Base Bid",
+            "Adj. CPA",
+            "Max BA",
+        ]
+
+        for col in helper_columns:
+            if col not in df_with_helpers.columns:
+                df_with_helpers[col] = 0.0
+
+        # Reorder columns to place helpers before Bid column
+        bid_col_index = (
+            df_with_helpers.columns.get_loc("Bid")
+            if "Bid" in df_with_helpers.columns
+            else -1
+        )
+
+        if bid_col_index > 0:
+            # Get column order
+            cols_before_bid = list(df_with_helpers.columns[:bid_col_index])
+            cols_after_bid = list(df_with_helpers.columns[bid_col_index:])
+
+            # Remove helper columns from their current positions
+            for col in helper_columns:
+                if col in cols_before_bid:
+                    cols_before_bid.remove(col)
+                if col in cols_after_bid:
+                    cols_after_bid.remove(col)
+
+            # Insert helper columns before Bid
+            new_column_order = cols_before_bid + helper_columns + cols_after_bid
+
+            # Reorder dataframe
+            df_with_helpers = df_with_helpers[new_column_order]
 
         return df_with_helpers
-
-    def _find_column(self, df: pd.DataFrame, keywords: List[str]) -> str:
-        """Find column by keywords."""
-
-        for col in df.columns:
-            col_lower = col.lower()
-            for keyword in keywords:
-                if keyword.lower() in col_lower:
-                    return col
-        return None
-
-    def _get_numeric_value(
-        self, row: pd.Series, col_name: str, default: float
-    ) -> float:
-        """Safely get numeric value from row."""
-
-        if col_name not in row.index:
-            return default
-
-        val = row[col_name]
-
-        if pd.isna(val) or str(val).lower() == "ignore":
-            return default
-
-        try:
-            return float(val)
-        except:
-            return default
