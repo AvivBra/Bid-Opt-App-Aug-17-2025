@@ -1,30 +1,41 @@
-"""Portfolio filtering utilities."""
+"""Portfolio filtering utilities for bid optimizations."""
 
 import pandas as pd
-from typing import List, Set, Tuple, Dict, Any
-from business.common.excluded_portfolios import (
-    EXCLUDED_PORTFOLIOS,
-    is_excluded_portfolio,
-)
+from typing import Dict, Any, Tuple, List, Optional
 import logging
 
 
 class PortfolioFilter:
-    """Filters portfolios based on various criteria."""
+    """Handles portfolio-related filtering operations."""
 
     def __init__(self):
-        self.logger = logging.getLogger("portfolio_filter")
-        self.excluded_portfolios = set(EXCLUDED_PORTFOLIOS)
+        self.logger = logging.getLogger("common.portfolio_filter")
+
+        # 10 excluded portfolios (case sensitive)
+        self.excluded_portfolios = [
+            "Flat 30",
+            "Flat 25",
+            "Flat 40",
+            "Flat 25 | Opt",
+            "Flat 30 | Opt",
+            "Flat 20",
+            "Flat 15",
+            "Flat 40 | Opt",
+            "Flat 20 | Opt",
+            "Flat 15 | Opt",
+        ]
 
     def filter_excluded_portfolios(
-        self, df: pd.DataFrame, portfolio_col: str
+        self,
+        df: pd.DataFrame,
+        portfolio_col: str = "Portfolio Name (Informational only)",
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """
-        Filter out excluded 'Flat' portfolios from bulk data.
+        Remove rows from excluded 'Flat' portfolios.
 
         Args:
-            df: Bulk data DataFrame
-            portfolio_col: Name of portfolio column (should be 'Portfolio Name (Informational only)')
+            df: DataFrame to filter
+            portfolio_col: Name of portfolio column
 
         Returns:
             Tuple of (filtered_dataframe, filter_details)
@@ -32,58 +43,46 @@ class PortfolioFilter:
 
         details = {
             "original_rows": len(df),
-            "excluded_portfolios": [],
+            "excluded_portfolios": self.excluded_portfolios.copy(),
             "filtered_rows": 0,
             "remaining_rows": 0,
         }
 
-        if df.empty or portfolio_col not in df.columns:
-            # FIXED: Try exact column name if provided column not found
-            if (
-                portfolio_col not in df.columns
-                and "Portfolio Name (Informational only)" in df.columns
-            ):
-                portfolio_col = "Portfolio Name (Informational only)"
-            else:
-                return df, details
+        if df.empty:
+            return df, details
 
-        try:
-            # Create exclusion mask
-            portfolio_series = df[portfolio_col].astype(str).str.strip()
-            exclusion_mask = portfolio_series.apply(is_excluded_portfolio)
+        if portfolio_col not in df.columns:
+            self.logger.warning(f"Portfolio column '{portfolio_col}' not found")
+            details["error"] = "Portfolio column not found"
+            return df, details
 
-            # Track excluded portfolios
-            excluded_portfolios = portfolio_series[exclusion_mask].unique().tolist()
-            details["excluded_portfolios"] = excluded_portfolios
-            details["filtered_rows"] = exclusion_mask.sum()
+        # Filter out excluded portfolios (case sensitive)
+        excluded_mask = df[portfolio_col].isin(self.excluded_portfolios)
+        filtered_df = df[~excluded_mask].copy()
 
-            # Filter data
-            filtered_df = df[~exclusion_mask].copy()
-            details["remaining_rows"] = len(filtered_df)
+        details["filtered_rows"] = excluded_mask.sum()
+        details["remaining_rows"] = len(filtered_df)
 
+        if details["filtered_rows"] > 0:
             self.logger.info(
-                f"Filtered out {details['filtered_rows']} rows from {len(excluded_portfolios)} excluded portfolios"
+                f"Filtered out {details['filtered_rows']} rows from excluded portfolios"
             )
 
-            return filtered_df, details
-
-        except Exception as e:
-            self.logger.error(f"Error filtering excluded portfolios: {str(e)}")
-            return df, details
+        return filtered_df, details
 
     def filter_ignored_portfolios(
         self,
         df: pd.DataFrame,
-        portfolio_col: str,
         template_data: Dict[str, pd.DataFrame],
+        portfolio_col: str = "Portfolio Name (Informational only)",
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """
-        Filter out portfolios marked as 'Ignore' in template.
+        Remove rows from portfolios marked as 'Ignore' in template.
 
         Args:
             df: Bulk data DataFrame
-            portfolio_col: Name of portfolio column
             template_data: Template data with Port Values sheet
+            portfolio_col: Name of portfolio column
 
         Returns:
             Tuple of (filtered_dataframe, filter_details)
@@ -99,204 +98,174 @@ class PortfolioFilter:
         if df.empty:
             return df, details
 
-        try:
-            # Get ignored portfolios from template
-            ignored_portfolios = self._get_ignored_portfolios(template_data)
+        if portfolio_col not in df.columns:
+            self.logger.warning(f"Portfolio column '{portfolio_col}' not found")
+            details["error"] = "Portfolio column not found"
+            return df, details
 
-            if not ignored_portfolios:
-                details["remaining_rows"] = len(df)
-                return df, details
+        # Get Port Values sheet
+        port_values = template_data.get("Port Values", pd.DataFrame())
 
+        if port_values.empty:
+            self.logger.warning("Port Values sheet is empty")
+            details["error"] = "Port Values sheet empty"
+            return df, details
+
+        # Find portfolios with Base Bid = 'Ignore'
+        if "Base Bid" not in port_values.columns:
+            self.logger.warning("Base Bid column not found in Port Values")
+            details["error"] = "Base Bid column not found"
+            return df, details
+
+        # Convert Base Bid to string and check for 'Ignore' (case insensitive)
+        port_values["Base Bid"] = port_values["Base Bid"].astype(str)
+        ignored_mask = port_values["Base Bid"].str.lower() == "ignore"
+        ignored_portfolios = port_values[ignored_mask]["Portfolio Name"].tolist()
+
+        details["ignored_portfolios"] = ignored_portfolios
+
+        if ignored_portfolios:
             # Filter out ignored portfolios
-            portfolio_series = df[portfolio_col].astype(str).str.strip()
-            ignore_mask = portfolio_series.isin(ignored_portfolios)
+            ignored_data_mask = df[portfolio_col].isin(ignored_portfolios)
+            filtered_df = df[~ignored_data_mask].copy()
 
-            # Track details
-            details["ignored_portfolios"] = list(ignored_portfolios)
-            details["filtered_rows"] = ignore_mask.sum()
-
-            # Filter data
-            filtered_df = df[~ignore_mask].copy()
+            details["filtered_rows"] = ignored_data_mask.sum()
             details["remaining_rows"] = len(filtered_df)
 
-            self.logger.info(
-                f"Filtered out {details['filtered_rows']} rows from {len(ignored_portfolios)} ignored portfolios"
-            )
+            if details["filtered_rows"] > 0:
+                self.logger.info(
+                    f"Filtered out {details['filtered_rows']} rows from "
+                    f"{len(ignored_portfolios)} ignored portfolios"
+                )
 
             return filtered_df, details
 
-        except Exception as e:
-            self.logger.error(f"Error filtering ignored portfolios: {str(e)}")
-            return df, details
+        details["remaining_rows"] = len(df)
+        return df, details
 
-    def filter_zero_sales_candidates(
-        self, df: pd.DataFrame, units_col: str
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    def validate_portfolio_match(
+        self,
+        bulk_df: pd.DataFrame,
+        template_data: Dict[str, pd.DataFrame],
+        portfolio_col: str = "Portfolio Name (Informational only)",
+    ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        Filter to only rows with Units = 0 (zero sales).
+        Validate that all portfolios in bulk exist in template.
 
         Args:
-            df: Bulk data DataFrame
-            units_col: Name of units column
+            bulk_df: Bulk data DataFrame
+            template_data: Template data with Port Values sheet
+            portfolio_col: Name of portfolio column
 
         Returns:
-            Tuple of (filtered_dataframe, filter_details)
+            Tuple of (is_valid, message, details)
         """
 
         details = {
-            "original_rows": len(df),
-            "zero_sales_rows": 0,
-            "non_zero_sales_rows": 0,
+            "bulk_portfolios": set(),
+            "template_portfolios": set(),
+            "missing_portfolios": set(),
+            "excluded_portfolios_found": set(),
+            "ignored_portfolios_found": set(),
         }
 
-        if df.empty or units_col not in df.columns:
-            return df, details
-
-        try:
-            # Filter to Units = 0
-            zero_sales_mask = df[units_col] == 0
-
-            # Track details
-            details["zero_sales_rows"] = zero_sales_mask.sum()
-            details["non_zero_sales_rows"] = (~zero_sales_mask).sum()
-
-            # Filter data
-            filtered_df = df[zero_sales_mask].copy()
-
-            self.logger.info(
-                f"Filtered to {details['zero_sales_rows']} zero sales rows out of {len(df)} total"
+        # Get unique portfolios from bulk
+        if portfolio_col in bulk_df.columns:
+            details["bulk_portfolios"] = set(bulk_df[portfolio_col].dropna().unique())
+        else:
+            return (
+                False,
+                f"Portfolio column '{portfolio_col}' not found in bulk",
+                details,
             )
 
-            return filtered_df, details
+        # Get portfolios from template
+        port_values = template_data.get("Port Values", pd.DataFrame())
+        if not port_values.empty and "Portfolio Name" in port_values.columns:
+            details["template_portfolios"] = set(
+                port_values["Portfolio Name"].dropna().unique()
+            )
+        else:
+            return False, "Port Values sheet or Portfolio Name column missing", details
 
-        except Exception as e:
-            self.logger.error(f"Error filtering zero sales candidates: {str(e)}")
-            return df, details
+        # Find missing portfolios
+        missing = details["bulk_portfolios"] - details["template_portfolios"]
 
-    def apply_all_filters(
-        self,
-        df: pd.DataFrame,
-        portfolio_col: str,
-        units_col: str,
-        template_data: Dict[str, pd.DataFrame],
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        # Remove excluded portfolios from missing
+        missing = missing - set(self.excluded_portfolios)
+
+        details["missing_portfolios"] = missing
+
+        # Check for excluded portfolios in bulk
+        details["excluded_portfolios_found"] = details["bulk_portfolios"] & set(
+            self.excluded_portfolios
+        )
+
+        # Check for ignored portfolios
+        if "Base Bid" in port_values.columns:
+            port_values["Base Bid"] = port_values["Base Bid"].astype(str)
+            ignored_mask = port_values["Base Bid"].str.lower() == "ignore"
+            ignored_portfolios = set(
+                port_values[ignored_mask]["Portfolio Name"].tolist()
+            )
+            details["ignored_portfolios_found"] = (
+                details["bulk_portfolios"] & ignored_portfolios
+            )
+
+        if missing:
+            return False, f"Missing portfolios in template: {missing}", details
+
+        return True, "All portfolios validated", details
+
+    def is_flat_portfolio(self, portfolio_name: str) -> bool:
         """
-        Apply all filters in sequence.
+        Check if a portfolio is in the excluded list.
 
         Args:
-            df: Bulk data DataFrame
-            portfolio_col: Name of portfolio column (should be 'Portfolio Name (Informational only)')
-            units_col: Name of units column
-            template_data: Template data dictionary
+            portfolio_name: Name of the portfolio
 
         Returns:
-            Tuple of (filtered_dataframe, combined_filter_details)
+            True if the portfolio should be excluded
+        """
+        return portfolio_name in self.excluded_portfolios
+
+    def get_excluded_list(self) -> List[str]:
+        """
+        Get the list of excluded portfolios.
+
+        Returns:
+            List of excluded portfolio names
+        """
+        return self.excluded_portfolios.copy()
+
+    def count_filtered(
+        self,
+        df: pd.DataFrame,
+        portfolio_col: str = "Portfolio Name (Informational only)",
+    ) -> Dict[str, int]:
+        """
+        Count how many rows would be filtered by various criteria.
+
+        Args:
+            df: DataFrame to analyze
+            portfolio_col: Name of portfolio column
+
+        Returns:
+            Dictionary with counts
         """
 
-        combined_details = {
-            "original_rows": len(df),
-            "final_rows": 0,
-            "excluded_filter": {},
-            "ignored_filter": {},
-            "zero_sales_filter": {},
-            "total_filtered": 0,
+        counts = {
+            "total_rows": len(df),
+            "excluded_portfolios": 0,
+            "unique_portfolios": 0,
         }
 
-        current_df = df.copy()
+        if portfolio_col in df.columns:
+            # Count rows from excluded portfolios
+            excluded_mask = df[portfolio_col].isin(self.excluded_portfolios)
+            counts["excluded_portfolios"] = excluded_mask.sum()
 
-        # FIXED: Ensure we're using the correct column name
-        if (
-            portfolio_col not in current_df.columns
-            and "Portfolio Name (Informational only)" in current_df.columns
-        ):
-            portfolio_col = "Portfolio Name (Informational only)"
+            # Count unique portfolios
+            counts["unique_portfolios"] = df[portfolio_col].nunique()
 
-        # Step 1: Filter excluded portfolios
-        current_df, excluded_details = self.filter_excluded_portfolios(
-            current_df, portfolio_col
-        )
-        combined_details["excluded_filter"] = excluded_details
-
-        # Step 2: Filter ignored portfolios
-        current_df, ignored_details = self.filter_ignored_portfolios(
-            current_df, portfolio_col, template_data
-        )
-        combined_details["ignored_filter"] = ignored_details
-
-        # Step 3: Filter to zero sales only
-        current_df, zero_details = self.filter_zero_sales_candidates(
-            current_df, units_col
-        )
-        combined_details["zero_sales_filter"] = zero_details
-
-        # Calculate final statistics
-        combined_details["final_rows"] = len(current_df)
-        combined_details["total_filtered"] = len(df) - len(current_df)
-
-        self.logger.info(
-            f"Applied all filters: {len(df)} -> {len(current_df)} rows ({combined_details['total_filtered']} filtered)"
-        )
-
-        return current_df, combined_details
-
-    def _get_ignored_portfolios(
-        self, template_data: Dict[str, pd.DataFrame]
-    ) -> Set[str]:
-        """Get set of portfolios marked as 'Ignore' in template."""
-
-        try:
-            port_values = template_data.get("Port Values")
-            if port_values is None or port_values.empty:
-                return set()
-
-            # Find portfolios with Base Bid = 'Ignore'
-            base_bids = port_values["Base Bid"].astype(str).str.strip().str.lower()
-            ignored_mask = base_bids == "ignore"
-
-            ignored_portfolios = (
-                port_values[ignored_mask]["Portfolio Name"].astype(str).str.strip()
-            )
-
-            return set(ignored_portfolios)
-
-        except Exception as e:
-            self.logger.error(f"Error getting ignored portfolios: {str(e)}")
-            return set()
-
-    def get_filter_summary(self, filter_details: Dict[str, Any]) -> str:
-        """Generate human-readable filter summary."""
-
-        summary_parts = []
-
-        # Original rows
-        summary_parts.append(
-            f"Started with {filter_details.get('original_rows', 0)} rows"
-        )
-
-        # Excluded portfolios
-        if "excluded_filter" in filter_details:
-            excluded = filter_details["excluded_filter"]
-            if excluded.get("filtered_rows", 0) > 0:
-                summary_parts.append(
-                    f"Excluded {excluded['filtered_rows']} rows from {len(excluded.get('excluded_portfolios', []))} flat portfolios"
-                )
-
-        # Ignored portfolios
-        if "ignored_filter" in filter_details:
-            ignored = filter_details["ignored_filter"]
-            if ignored.get("filtered_rows", 0) > 0:
-                summary_parts.append(
-                    f"Ignored {ignored['filtered_rows']} rows from {len(ignored.get('ignored_portfolios', []))} portfolios"
-                )
-
-        # Zero sales filter
-        if "zero_sales_filter" in filter_details:
-            zero_sales = filter_details["zero_sales_filter"]
-            summary_parts.append(
-                f"Kept {zero_sales.get('zero_sales_rows', 0)} zero sales rows"
-            )
-
-        # Final result
-        summary_parts.append(f"Result: {filter_details.get('final_rows', 0)} rows")
-
-        return " | ".join(summary_parts)
+        return counts

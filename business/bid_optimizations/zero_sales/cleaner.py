@@ -1,9 +1,9 @@
-"""Zero Sales optimization data cleaning."""
+"""Zero Sales optimization data cleaning - FIXED VERSION."""
 
 import pandas as pd
 from typing import Dict, Any, Tuple, List
 import logging
-from business.common.portfolio_filter import PortfolioFilter
+import numpy as np
 
 
 class ZeroSalesCleaner:
@@ -15,11 +15,12 @@ class ZeroSalesCleaner:
     2. Filter Units = 0 (only on Targeting)
     3. Remove excluded 'Flat' portfolios
     4. Remove portfolios marked as 'Ignore'
+    5. Filter by State = enabled
+    6. Validate numeric values
     """
 
     def __init__(self):
         self.logger = logging.getLogger("optimization.zero_sales.cleaner")
-        self.portfolio_filter = PortfolioFilter()
 
         # 10 excluded portfolios (case sensitive)
         self.excluded_portfolios = [
@@ -44,17 +45,22 @@ class ZeroSalesCleaner:
         """
         Clean and filter data for Zero Sales processing.
 
-        Returns dictionary with separate sheets for Targeting and Bidding Adjustment.
+        Returns dictionary with separate sheets for Targeting, Bidding Adjustment and Product Ad.
+        IMPORTANT: Never removes columns from the original 48 columns structure!
         """
 
         cleaning_details = {
             "input_rows": len(bulk_data),
             "entity_split": {},
             "filtering": {},
+            "numeric_validation": {},
             "output_rows": {},
         }
 
         self.logger.info(f"Starting Zero Sales cleaning: {len(bulk_data)} input rows")
+
+        # CRITICAL: Preserve all 48 columns throughout the process
+        original_columns = bulk_data.columns.tolist()
 
         # STEP 1: Split by Entity type FIRST (before any filtering)
         split_data = self._split_by_entity(bulk_data, column_mapping)
@@ -68,10 +74,15 @@ class ZeroSalesCleaner:
 
         # STEP 2: Apply filters ONLY to Targeting sheet
         if "Targeting" in split_data and not split_data["Targeting"].empty:
+            targeting_df = split_data["Targeting"].copy()
+
+            # Ensure all original columns are preserved
+            for col in original_columns:
+                if col not in targeting_df.columns:
+                    targeting_df[col] = ""
+
             # Filter Units = 0
-            targeting_df = self._filter_zero_units(
-                split_data["Targeting"], column_mapping
-            )
+            targeting_df = self._filter_zero_units(targeting_df, column_mapping)
             cleaning_details["filtering"]["after_units_filter"] = len(targeting_df)
 
             # Remove excluded portfolios
@@ -86,11 +97,30 @@ class ZeroSalesCleaner:
             )
             cleaning_details["filtering"]["after_ignored_filter"] = len(targeting_df)
 
+            # Filter by State (NEW)
+            targeting_df = self._filter_by_state(targeting_df, column_mapping)
+            cleaning_details["filtering"]["after_state_filter"] = len(targeting_df)
+
+            # Validate numeric values (NEW) - marks errors but doesn't remove rows
+            targeting_df, validation_stats = self._validate_numeric_values(
+                targeting_df, column_mapping
+            )
+            cleaning_details["numeric_validation"] = validation_stats
+
+            # Ensure column order is preserved
+            targeting_df = targeting_df[original_columns]
             split_data["Targeting"] = targeting_df
 
-        # STEP 3: Remove Product Ad sheet (not used in Zero Sales)
-        if "Product Ad" in split_data:
-            del split_data["Product Ad"]
+        # STEP 3: Keep all sheets with original columns
+        # Ensure all sheets maintain the original 48 columns
+        for sheet_name in split_data:
+            if sheet_name in split_data:
+                df = split_data[sheet_name]
+                # Preserve original columns
+                for col in original_columns:
+                    if col not in df.columns:
+                        df[col] = ""
+                split_data[sheet_name] = df[original_columns]
 
         # Final row counts
         cleaning_details["output_rows"] = {
@@ -115,7 +145,7 @@ class ZeroSalesCleaner:
             Dictionary with keys:
             - "Targeting": Keyword + Product Targeting
             - "Bidding Adjustment": Bidding Adjustment rows
-            - "Product Ad": Product Ad rows (will be removed later)
+            - "Product Ad": Product Ad rows
         """
 
         entity_col = column_mapping.get("entity", "Entity")
@@ -134,7 +164,7 @@ class ZeroSalesCleaner:
         ba_mask = df[entity_col] == "Bidding Adjustment"
         result["Bidding Adjustment"] = df[ba_mask].copy()
 
-        # Product Ad sheet (will be removed)
+        # Product Ad sheet (KEEP - don't delete)
         pa_mask = df[entity_col] == "Product Ad"
         result["Product Ad"] = df[pa_mask].copy()
 
@@ -238,6 +268,103 @@ class ZeroSalesCleaner:
 
         return df
 
+    def _filter_by_state(
+        self, df: pd.DataFrame, column_mapping: Dict[str, str]
+    ) -> pd.DataFrame:
+        """Filter to only rows with State = enabled (NEW)."""
+
+        # Check all three state columns
+        state_col = column_mapping.get("state", "State")
+        campaign_state_col = column_mapping.get(
+            "campaign_state", "Campaign State (Informational only)"
+        )
+        ad_group_state_col = column_mapping.get(
+            "ad_group_state", "Ad Group State (Informational only)"
+        )
+
+        initial_count = len(df)
+
+        # Filter by State
+        if state_col in df.columns:
+            df = df[df[state_col].str.lower() == "enabled"].copy()
+
+        # Filter by Campaign State
+        if campaign_state_col in df.columns:
+            df = df[df[campaign_state_col].str.lower() == "enabled"].copy()
+
+        # Filter by Ad Group State
+        if ad_group_state_col in df.columns:
+            df = df[df[ad_group_state_col].str.lower() == "enabled"].copy()
+
+        filtered_count = initial_count - len(df)
+        if filtered_count > 0:
+            self.logger.info(f"Filtered {filtered_count} rows with State != enabled")
+
+        return df
+
+    def _validate_numeric_values(
+        self, df: pd.DataFrame, column_mapping: Dict[str, str]
+    ) -> Tuple[pd.DataFrame, Dict[str, int]]:
+        """Validate and mark rows with invalid numeric values (NEW)."""
+
+        stats = {
+            "invalid_bid": 0,
+            "invalid_clicks": 0,
+            "invalid_units": 0,
+            "invalid_percentage": 0,
+            "rows_marked_error": 0,
+        }
+
+        # Columns to validate
+        bid_col = column_mapping.get("bid", "Bid")
+        clicks_col = column_mapping.get("clicks", "Clicks")
+        units_col = column_mapping.get("units", "Units")
+        percentage_col = column_mapping.get("percentage", "Percentage")
+
+        # Track rows with errors
+        error_mask = pd.Series(False, index=df.index)
+
+        # Validate Bid
+        if bid_col in df.columns:
+            df[bid_col] = pd.to_numeric(df[bid_col], errors="coerce")
+            invalid_bid = df[bid_col].isna()
+            stats["invalid_bid"] = invalid_bid.sum()
+            error_mask |= invalid_bid
+
+        # Validate Clicks
+        if clicks_col in df.columns:
+            df[clicks_col] = pd.to_numeric(df[clicks_col], errors="coerce")
+            invalid_clicks = df[clicks_col].isna()
+            stats["invalid_clicks"] = invalid_clicks.sum()
+            error_mask |= invalid_clicks
+
+        # Validate Units (should already be numeric from _filter_zero_units)
+        if units_col in df.columns:
+            df[units_col] = pd.to_numeric(df[units_col], errors="coerce")
+            invalid_units = df[units_col].isna()
+            stats["invalid_units"] = invalid_units.sum()
+            error_mask |= invalid_units
+
+        # Validate Percentage
+        if percentage_col in df.columns:
+            df[percentage_col] = pd.to_numeric(df[percentage_col], errors="coerce")
+            invalid_percentage = df[percentage_col].isna()
+            stats["invalid_percentage"] = invalid_percentage.sum()
+            error_mask |= invalid_percentage
+
+        # Mark error rows (for later processing in processor.py)
+        if bid_col in df.columns:
+            df.loc[error_mask, f"{bid_col}_error"] = True
+
+        stats["rows_marked_error"] = error_mask.sum()
+
+        if stats["rows_marked_error"] > 0:
+            self.logger.warning(
+                f"Found {stats['rows_marked_error']} rows with invalid numeric values"
+            )
+
+        return df, stats
+
     def get_cleaning_summary(self, cleaning_details: Dict[str, Any]) -> str:
         """Generate a human-readable cleaning summary."""
 
@@ -251,7 +378,8 @@ class ZeroSalesCleaner:
             split = cleaning_details["entity_split"]
             summary_parts.append(
                 f"Split: Targeting={split.get('targeting', 0)}, "
-                f"BA={split.get('bidding_adjustment', 0)}"
+                f"BA={split.get('bidding_adjustment', 0)}, "
+                f"Product Ad={split.get('product_ad', 0)}"
             )
 
         # Filtering
@@ -268,6 +396,18 @@ class ZeroSalesCleaner:
             if "after_ignored_filter" in filt:
                 summary_parts.append(
                     f"After removing Ignore: {filt['after_ignored_filter']} rows"
+                )
+            if "after_state_filter" in filt:
+                summary_parts.append(
+                    f"After State filter: {filt['after_state_filter']} rows"
+                )
+
+        # Numeric validation
+        if "numeric_validation" in cleaning_details:
+            validation = cleaning_details["numeric_validation"]
+            if validation.get("rows_marked_error", 0) > 0:
+                summary_parts.append(
+                    f"Numeric errors: {validation['rows_marked_error']} rows marked"
                 )
 
         # Output
