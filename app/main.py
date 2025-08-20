@@ -1,36 +1,29 @@
-"""Main entry point for Bid Optimizer application."""
+"""Main entry point for the Bid Optimizer application - Complete version."""
 
 import streamlit as st
 import sys
-import os
+from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add parent directory to path to fix imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config.settings import settings
-from app.state.session_manager import SessionManager
 from app.navigation import Navigation
+from app.ui.layout import setup_page_config
+from app.state.session_manager import SessionManager
 
 
 def main():
     """Main application entry point."""
     
-    # Configure Streamlit page
-    st.set_page_config(
-        page_title=settings.app_title,
-        page_icon="⚡",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+    # Setup page configuration
+    setup_page_config()
     
-    # Initialize session manager
+    # Initialize session state
     session_manager = SessionManager()
     session_manager.initialize()
     
-    # Create navigation
+    # Create and render navigation
     nav = Navigation()
-    
-    # Display application
     nav.render()
 
 

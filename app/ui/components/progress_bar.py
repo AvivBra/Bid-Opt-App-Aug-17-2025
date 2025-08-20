@@ -50,7 +50,7 @@ def create_progress_html(percent: int) -> str:
         ">
             <span style="
                 color: white;
-                font-weight: bold;
+                font-weight: 400;
                 font-size: 14px;
                 position: absolute;
                 left: 50%;
