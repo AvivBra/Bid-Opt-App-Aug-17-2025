@@ -1,14 +1,10 @@
-"""Main entry point for the Bid Optimizer application."""
+page = BidOptimizerPage()
+page.render()
+"""Main entry point for the Bid Optimizer application - Complete version."""
 
 import streamlit as st
 import sys
-import os
-import time
 from pathlib import Path
-
-# Kill any existing streamlit processes first
-os.system("pkill -f 'streamlit run'")
-time.sleep(1)
 
 # Add parent directory to path to fix imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
