@@ -1,7 +1,7 @@
 [theme]
-primaryColor = "#8B5CF6"
-backgroundColor = "#0A0A0A"
-secondaryBackgroundColor = "#171717"
+primaryColor = "#E5E5E5"
+backgroundColor = "#1e1f23"
+secondaryBackgroundColor = "#26282c"
 textColor = "#E5E5E5"
 font = "monospace"  # Space Mono יפול לקטגוריה הזו
 

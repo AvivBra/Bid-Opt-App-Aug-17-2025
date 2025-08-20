@@ -97,7 +97,7 @@ def apply_download_styles() -> None:
         }
         
         .stButton > button:not(:disabled) {
-            background: linear-gradient(90deg, #7C3AED 0%, #A855F7 100%) !important;
+            background: linear-gradient(90deg, #CCCCCC 0%, #EEEEEE 100%) !important;
             color: white !important;
             border: none !important;
             font-weight: 600 !important;

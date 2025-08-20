@@ -91,13 +91,13 @@ CLEAN_FILE_SUFFIX = "Clean"
 
 # Colors for UI
 COLORS = {
-    "primary": "#7C3AED",
-    "secondary": "#A855F7",
+    "primary": "#CCCCCC",
+    "secondary": "#EEEEEE",
     "background": "#0F0F0F",
     "sidebar": "#1A1A1A",
     "card": "#1A1A1A",
     "surface": "#1A1A1A",
-    "accent": "#8B5CF6",
+    "accent": "#DDDDDD",
     "alert_bg": "#404040",
     "text": "#FFFFFF",
     "error": "#EF4444",

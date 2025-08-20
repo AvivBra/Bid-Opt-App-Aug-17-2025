@@ -278,7 +278,7 @@ def render_help_text(
             f"""
             <div style="
                 background-color: #0F0F0F;
-                border-left: 3px solid #8B5CF6;
+                border-left: 3px solid #DDDDDD;
                 padding: 12px 16px;
                 margin: 16px 0;
             ">

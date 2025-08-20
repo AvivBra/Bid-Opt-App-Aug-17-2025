@@ -47,7 +47,7 @@ class TemplateGenerator:
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="8B5CF6", end_color="8B5CF6", fill_type="solid")
+            cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
         
         # Sample data with instructions
@@ -84,7 +84,7 @@ class TemplateGenerator:
         # Header
         cell = ws.cell(row=1, column=1, value="Top ASINs Data")
         cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill(start_color="8B5CF6", end_color="8B5CF6", fill_type="solid")
+        cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
         cell.alignment = Alignment(horizontal="center")
         
         # Instructions

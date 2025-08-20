@@ -13,8 +13,8 @@ def apply_custom_css():
   h1 {
       font-weight: 300 !important;
       font-size: 4rem !important;
-      margin-bottom: -100px !important;  /* שיניתי לרווח שלילי יותר גדול */
-      padding-bottom: 0 !important;
+      margin-bottom: 50px !important;  /* שיניתי לרווח שלילי יותר גדול */
+      padding-bottom: 50 !important;
       line-height: .5 !important;
   }
   
@@ -51,7 +51,7 @@ def apply_custom_css():
   h3 {
       font-weight: 300 !important;
       font-size: 1.5rem !important;
-      margin-bottom: -100 !important;
+      margin-bottom: 0 !important;
   }
   
   h4, h5, h6 {
@@ -59,11 +59,7 @@ def apply_custom_css():
       font-size: 1.5rem !important;
       margin-bottom: 0 !important;
   }
-  
-  /* Dark theme background */
-  .stApp {
-      background-color: #0f0f0f;
-  }
+
    
   /* Center EVERYTHING in main content - MEDIUM-WIDE */
   .main .block-container {
@@ -79,18 +75,10 @@ def apply_custom_css():
       margin: 0 auto !important;
   }
   
-  /* Force center ALL elements */
-  .main * {
-      text-align: center !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-  }
-  
   /* Center all headers */
   h1, h2, h3, h4, h5, h6 {
       text-align: center !important;
       width: 100%;
-      margin: 20px auto !important;
   }
   
   /* Center all paragraphs and text */
@@ -191,18 +179,18 @@ hr {
   
   /* Custom button styling */
   .stButton > button {
-      background-color: #8B5CF6;
-      color: white;
+      background-color: #DDDDDD;
+      color: #26282c;
       border: none;
       padding: 0.5rem 2rem;
       border-radius: 4px;
-      font-weight: 400;
+      font-weight: 500;
       transition: all 0.3s;
       min-width: 150px;
   }
   
   .stButton > button:hover {
-      background-color: #7C3AED;
+      background-color: #CCCCCC;
       transform: translateY(-2px);
   }
   
@@ -254,6 +242,50 @@ hr {
   div[class*="css"] {
       text-align: center !important;
   }
+  
+    section[data-testid="stSidebar"] {
+       border-right: 0.5px solid #A1A1A1 !important;
+    }
+        
+    /* או אם רוצה גבול של 1px */
+    section[data-testid="stSidebar"] {
+    border-right: 1px solid #A1A1A1 !important;
+    }
+    
+    /* הקוד הקיים... */
+        
+    /* כפתור פתיחת הסיידבר (hamburger menu) */
+    button[kind="header"] {
+    background-color: #DDDDDD !important;
+    color: #26282c !important;
+    }
+    
+    /* צבע רקע לסיידבר */
+    section[data-testid="stSidebar"] {
+        background-color: #1e1f23 !important;
+    }
+        
+    /* צבע רקע לתוכן הסיידבר */
+    section[data-testid="stSidebar"] > div {
+        background-color: #1e1f23 !important;
+    }
+
+    /* CHECKBOX STYLES - Clean approach based on Inspector */
+    /* Override accent-color for checkbox */
+    input[type="checkbox"] {
+        accent-color: #26282c !important;
+    }
+    
+    /* Specific class from inspector */
+    input.st-bn[type="checkbox"] {
+        accent-color: #26282c !important;
+    }
+    
+    /* When checked */
+    input[type="checkbox"][aria-checked="true"] {
+        accent-color: #26282c !important;
+    }
+    
   </style>
   """,
         unsafe_allow_html=True,

@@ -41,7 +41,7 @@ def create_progress_html(percent: int) -> str:
         <div style="
             width: {percent}%;
             height: 100%;
-            background: linear-gradient(90deg, #7C3AED 0%, #A855F7 100%);
+            background: linear-gradient(90deg, #CCCCCC 0%, #EEEEEE 100%);
             border-radius: 15px;
             transition: width 0.3s ease;
             display: flex;
