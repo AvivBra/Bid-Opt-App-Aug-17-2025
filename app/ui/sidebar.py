@@ -44,10 +44,13 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
-        # Navigation buttons ONLY - no text
-        if st.button(
-            "Bid Optimizer", type="primary", use_container_width=True, key="nav_bid"
-        ):
+        # Main page button
+        if st.button("Main", type="primary", use_container_width=True, key="nav_main"):
+            st.session_state.current_page = "Main"
+            st.rerun()
+
+        # Bid Optimizer button
+        if st.button("Bid Optimizer", use_container_width=True, key="nav_bid"):
             st.session_state.current_page = "Bid Optimizer"
             st.rerun()
 
@@ -62,4 +65,4 @@ def render_sidebar():
 
 def get_current_page() -> str:
     """Get the currently selected page."""
-    return st.session_state.get("current_page", "Bid Optimizer")
+    return st.session_state.get("current_page", "Main")  # Changed default to "Main"
