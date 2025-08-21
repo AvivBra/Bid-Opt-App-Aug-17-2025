@@ -216,9 +216,6 @@ class ZeroSalesProcessor:
         # Initialize calculation columns
         processed["calc1"] = 0.0
         processed["calc2"] = 0.0
-        processed["New_Bid"] = 0.0
-        processed["Bid_Case"] = ""
-        processed["Bid_Error"] = False
 
         # Process each row
         for idx in processed.index:
@@ -290,12 +287,9 @@ class ZeroSalesProcessor:
 
                 # Update row
                 processed.at[idx, bid_col] = new_bid  # Update Bid column
-                processed.at[idx, "New_Bid"] = new_bid
-                processed.at[idx, "Bid_Case"] = case
 
                 # Check if bid is out of range for error marking
                 if new_bid < self.min_bid or new_bid > self.max_bid:
-                    processed.at[idx, "Bid_Error"] = True
                     self.stats["out_of_range_count"] += 1
 
                 # Update case statistics
@@ -303,7 +297,6 @@ class ZeroSalesProcessor:
 
             except Exception as e:
                 self.logger.error(f"Error processing row {idx}: {str(e)}")
-                processed.at[idx, "Bid_Error"] = True
                 self.stats["processing_errors"] += 1
 
         return processed

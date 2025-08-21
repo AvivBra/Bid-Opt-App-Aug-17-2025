@@ -129,44 +129,70 @@ class ZeroSalesValidator:
         column_mapping = {}
         missing_critical = []
 
-        # Map columns (case-insensitive)
-        df_cols_lower = {col.lower(): col for col in bulk_data.columns}
-
         # FIXED: Check for exact portfolio column name first
         if "Portfolio Name (Informational only)" in bulk_data.columns:
             column_mapping["portfolio"] = "Portfolio Name (Informational only)"
         else:
-            # Fallback: Try to find portfolio column
+            missing_critical.append("Portfolio Name (Informational only)")
+
+        # FIXED: Check for exact Bid column
+        if "Bid" in bulk_data.columns:
+            column_mapping["bid"] = "Bid"
+        else:
+            missing_critical.append("Bid")
+
+        # Map other columns using flexible matching
+        df_cols_lower = {col.lower(): col for col in bulk_data.columns}
+
+        # Map units column
+        if "units" not in column_mapping:
             found = False
-            for keyword in self.required_columns["portfolio"]:
-                for col_lower, col_original in df_cols_lower.items():
-                    if keyword.lower() in col_lower:
-                        column_mapping["portfolio"] = col_original
-                        found = True
-                        break
-                if found:
-                    break
-
-            if not found:
-                missing_critical.append("Portfolio Name (Informational only)")
-
-        # Map other required columns
-        for req_name, keywords in self.required_columns.items():
-            if req_name == "portfolio":
-                continue  # Already handled above
-
-            found = False
-            for keyword in keywords:
+            for keyword in self.required_columns["units"]:
                 for col_lower, col_original in df_cols_lower.items():
                     if keyword in col_lower:
-                        column_mapping[req_name] = col_original
+                        column_mapping["units"] = col_original
+                        found = True
+                        break
+                if found:
+                    break
+            if not found:
+                missing_critical.append("units")
+
+        # Map clicks column
+        if "clicks" not in column_mapping:
+            found = False
+            for keyword in self.required_columns["clicks"]:
+                for col_lower, col_original in df_cols_lower.items():
+                    if keyword in col_lower:
+                        column_mapping["clicks"] = col_original
                         found = True
                         break
                 if found:
                     break
 
-            if not found and req_name in ["units", "bid"]:
-                missing_critical.append(req_name)
+        # Map campaign column
+        if "campaign" not in column_mapping:
+            found = False
+            for keyword in self.required_columns["campaign"]:
+                for col_lower, col_original in df_cols_lower.items():
+                    if keyword in col_lower:
+                        column_mapping["campaign"] = col_original
+                        found = True
+                        break
+                if found:
+                    break
+
+        # Map entity column
+        if "entity" not in column_mapping:
+            found = False
+            for keyword in self.required_columns["entity"]:
+                for col_lower, col_original in df_cols_lower.items():
+                    if keyword in col_lower:
+                        column_mapping["entity"] = col_original
+                        found = True
+                        break
+                if found:
+                    break
 
         if missing_critical:
             return (

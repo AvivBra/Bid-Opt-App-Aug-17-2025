@@ -9,7 +9,7 @@ def apply_custom_css():
        <style>
 
        h1 {
-        font-size: 50px !important;
+        font-size: 100px !important;
         margin-bottom: -70px !important;
         }
         
@@ -186,11 +186,6 @@ def apply_custom_css():
            border-color: #ffffff !important;
        }
        
-       /* Hide Streamlit branding BUT NOT HEADER */
-       footer {
-           visibility: hidden;
-       }
-       /* header {visibility: hidden;} - REMOVED - Need header for top navigation */
        
        /* CHECKBOX STYLES - Clean approach based on Inspector */
        /* Override accent-color for checkbox */
