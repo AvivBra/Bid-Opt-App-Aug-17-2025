@@ -17,10 +17,10 @@ def main():
 
     # Setup page configuration - MUST BE FIRST AND ONLY ONCE
     st.set_page_config(
-        page_title="Bid Optimizer", layout="centered", initial_sidebar_state="collapsed"
+        page_title="Bid Optimizer",
+        layout="wide",  # CHANGED FROM "centered" TO "wide"
+        initial_sidebar_state="collapsed",
     )
-
-    # Apply CSS to ensure top nav is ALWAYS visible - with animation dela
 
     # Initialize session state
     session_manager = SessionManager()

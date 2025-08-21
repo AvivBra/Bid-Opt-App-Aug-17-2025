@@ -9,9 +9,38 @@ def apply_custom_css():
        <style>
 
        h1 {
-        font-size: 100px !important;
+        font-size: 50px !important;
         margin-bottom: -70px !important;
         }
+        
+        
+        h3 {
+        font-size: 20px !important;
+        margin-bottom: 40px !important;
+        }
+        
+    
+           
+        /* FIXED DIVIDERS - more specific selectors */
+        hr, 
+        .stMarkdown hr,
+        [data-testid="stHorizontalBlock"] hr,
+        [data-testid="column"] hr,
+        div hr {
+        width: 40% !important;
+        border: none !important;
+        border-top: 1px solid #ffffff !important;
+        opacity: .6 !important;
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        margin-top: 1000 !important;
+        margin-bottom: 1000 !important;
+}
+        
+        
+
+       
        
        
        /* Centering CSS */
@@ -102,14 +131,7 @@ def apply_custom_css():
            text-align: center !important;
        }
        
-       /* Center dividers - MORE VISIBLE AND SPACED */
-       hr {
-           margin: 100px auto !important;
-           width: 80% !important;
-           border: none !important;
-           border-top: 1px solid #ffffff !important;
-           opacity: 0.8 !important;
-       }
+      
        
        /* Center metrics */
        [data-testid="metric-container"] {
