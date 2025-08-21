@@ -20,58 +20,7 @@ def main():
         page_title="Bid Optimizer", layout="centered", initial_sidebar_state="collapsed"
     )
 
-    # Apply CSS to ensure top nav is ALWAYS visible - with animation delay
-    st.markdown(
-        """
-        <style>
-        /* FORCE top navigation to stay visible with animation */
-        @keyframes keepVisible {
-            from { opacity: 1; visibility: visible; }
-            to { opacity: 1; visibility: visible; }
-        }
-        
-        header[data-testid="stHeader"] {
-            visibility: visible !important;
-            display: block !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 999999 !important;
-            background-color: #0E1117 !important;
-            animation: keepVisible 0s infinite !important;
-        }
-        
-        /* Ensure navigation container is visible */
-        div[data-testid="stHorizontalBlock"] {
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        
-        /* Ensure navigation buttons are visible */
-        header button {
-            visibility: visible !important;
-            opacity: 1 !important;
-            color: #FFFFFF !important;
-        }
-        
-        /* Hide sidebar completely */
-        section[data-testid="stSidebar"] {
-            display: none !important;
-        }
-        
-        /* Remove sidebar button */
-        button[kind="header"] {
-            display: none !important;
-        }
-        
-        /* Ensure main content has no left margin */
-        .main {
-            margin-left: 0 !important;
-            padding-left: 0 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Apply CSS to ensure top nav is ALWAYS visible - with animation dela
 
     # Initialize session state
     session_manager = SessionManager()

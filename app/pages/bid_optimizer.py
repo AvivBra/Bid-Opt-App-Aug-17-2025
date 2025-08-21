@@ -10,13 +10,19 @@ class BidOptimizerPage:
     def render(self):
         """Render the complete Bid Optimizer page."""
 
+        # Import and apply custom CSS
+        from app.ui.layout import apply_custom_css
+
+        apply_custom_css()
+
         # Page title - CENTERED
         st.markdown(
             "<h1 style='text-align: center;'>Bid Optimizer</h1>", unsafe_allow_html=True
         )
+
         # Optimization selection - CENTERED
         st.markdown(
-            "<h3 style='text-align: center;'>1.Select Optimization</h3>",
+            "<h3 style='text-align: left;'>1.Select Optimization</h3>",
             unsafe_allow_html=True,
         )
 
@@ -28,7 +34,7 @@ class BidOptimizerPage:
 
         # הוסף כותרת Upload Files
         st.markdown(
-            "<h3 style='text-align: center;'>2. Upload Files</h3>",
+            "<h3 style='text-align: left;'>2. Upload Files</h3>",
             unsafe_allow_html=True,
         )
 
@@ -47,9 +53,6 @@ class BidOptimizerPage:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
-
-        # Space before upload buttons
-        st.markdown("")
 
         # Upload files row - both active uploaders side by side
         col1, col2 = st.columns(2)

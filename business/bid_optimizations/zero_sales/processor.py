@@ -199,16 +199,19 @@ class ZeroSalesProcessor:
 
         processed = df.copy()
 
-        # Find relevant columns
+        # FIXED: Save Old Bid directly from "Bid" column without mapping
+        if "Bid" in processed.columns:
+            processed["Old Bid"] = processed["Bid"].copy()
+        else:
+            self.logger.warning("Column 'Bid' not found, Old Bid will be empty")
+            processed["Old Bid"] = 0.0
+
+        # Find relevant columns for calculations
         bid_col = column_mapping.get("bid", "Bid")
         campaign_name_col = column_mapping.get(
             "campaign_name", "Campaign Name (Informational only)"
         )
         clicks_col = column_mapping.get("clicks", "Clicks")
-
-        # IMPORTANT: Save Old Bid BEFORE any calculations
-        # Copy current Bid values to Old Bid column
-        processed["Old Bid"] = processed[bid_col].copy()
 
         # Initialize calculation columns
         processed["calc1"] = 0.0
@@ -226,57 +229,63 @@ class ZeroSalesProcessor:
                 base_bid = row.get("Base Bid", 0.5)
                 target_cpa = row.get("Target CPA", np.nan)
                 adj_cpa = row.get("Adj. CPA", np.nan)
+                clicks = row.get(clicks_col, 0)
+                campaign_name = row.get(campaign_name_col, "")
                 max_ba = row.get("Max BA", 0)
-                clicks = pd.to_numeric(row.get(clicks_col, 0), errors="coerce")
-                if pd.isna(clicks):
-                    clicks = 0
 
-                # Check campaign name for "up and"
-                campaign_name = str(row.get(campaign_name_col, "")).lower()
-                has_up_and = "up and" in campaign_name
-                has_target_cpa = not pd.isna(target_cpa)
+                # Convert to float
+                clicks = float(clicks) if pd.notna(clicks) else 0
+                base_bid = float(base_bid) if pd.notna(base_bid) else 0.5
 
-                # Apply cases
-                if not has_target_cpa and has_up_and:
-                    # Case A: No Target CPA + "up and"
-                    new_bid = base_bid * 0.5
-                    case = "A"
+                # Check if campaign name contains "up and"
+                has_up_and = "up and" in str(campaign_name).lower()
 
-                elif not has_target_cpa and not has_up_and:
-                    # Case B: No Target CPA + no "up and"
-                    new_bid = base_bid
-                    case = "B"
-
-                elif has_target_cpa and has_up_and:
-                    # Case C: Has Target CPA + "up and"
-                    calc1 = (adj_cpa * 0.5) / (clicks + 1)
-                    calc2 = calc1 - (base_bid * 0.5)
-
-                    if calc1 <= 0:
-                        new_bid = calc2
-                    else:
+                # Determine case and calculate bid
+                if pd.isna(target_cpa):
+                    if has_up_and:
+                        # Case A: No Target CPA + "up and"
                         new_bid = base_bid * 0.5
+                        case = "A"
+                    else:
+                        # Case B: No Target CPA + no "up and"
+                        new_bid = base_bid
+                        case = "B"
 
-                    processed.at[idx, "calc1"] = calc1
-                    processed.at[idx, "calc2"] = calc2
-                    case = "C"
+                    # No calc1/calc2 for cases A/B
+                    processed.at[idx, "calc1"] = 0
+                    processed.at[idx, "calc2"] = 0
 
                 else:
-                    # Case D: Has Target CPA + no "up and"
-                    calc1 = adj_cpa / (clicks + 1)
-                    calc2 = calc1 - (base_bid / (1 + max_ba / 100))
+                    # Has Target CPA
+                    if has_up_and:
+                        # Case C: Has Target CPA + "up and"
+                        calc1 = adj_cpa * 0.5 / (clicks + 1)
+                        calc2 = calc1 - (base_bid * 0.5)
 
-                    if calc1 <= 0:
-                        new_bid = calc2
+                        if calc2 <= 0:
+                            new_bid = calc1
+                        else:
+                            new_bid = base_bid * 0.5
+
+                        case = "C"
+                        processed.at[idx, "calc1"] = calc1
+                        processed.at[idx, "calc2"] = calc2
+
                     else:
-                        new_bid = base_bid / (1 + max_ba / 100)
+                        # Case D: Has Target CPA + no "up and"
+                        calc1 = adj_cpa / (clicks + 1)
+                        calc2 = calc1 - (base_bid / (1 + max_ba / 100))
 
-                    processed.at[idx, "calc1"] = calc1
-                    processed.at[idx, "calc2"] = calc2
-                    case = "D"
+                        if calc2 <= 0:
+                            new_bid = calc1
+                        else:
+                            new_bid = base_bid / (1 + max_ba / 100)
 
-                # Apply bid constraints
-                new_bid = max(self.min_bid, min(new_bid, self.max_bid))
+                        case = "D"
+                        processed.at[idx, "calc1"] = calc1
+                        processed.at[idx, "calc2"] = calc2
+
+                # Round to 3 decimal places
                 new_bid = round(new_bid, 3)  # Round to 3 decimal places
 
                 # Update row
