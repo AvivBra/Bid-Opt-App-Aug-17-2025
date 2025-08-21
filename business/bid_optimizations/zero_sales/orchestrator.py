@@ -89,6 +89,22 @@ class ZeroSalesOptimization(BaseOptimization):
         # Store cleaning details for later use
         self._cleaning_details = cleaning_details.copy()
 
+        # ========== DEBUG START ==========
+        print(f"\n[DEBUG orchestrator.clean] Cleaned data type: {type(cleaned_data)}")
+        if isinstance(cleaned_data, dict):
+            print(
+                f"[DEBUG orchestrator.clean] Cleaned data keys: {list(cleaned_data.keys())}"
+            )
+            for sheet_name, sheet_df in cleaned_data.items():
+                print(
+                    f"[DEBUG orchestrator.clean] Sheet '{sheet_name}': {len(sheet_df)} rows"
+                )
+        else:
+            print(
+                f"[DEBUG orchestrator.clean] Cleaned data is not a dict, it's: {type(cleaned_data)}"
+            )
+        # ========== DEBUG END ==========
+
         # Log results
         total_rows = sum(len(df) for df in cleaned_data.values())
         self.logger.info(
@@ -114,6 +130,22 @@ class ZeroSalesOptimization(BaseOptimization):
 
         self.logger.info("Starting Zero Sales bid processing")
 
+        # ========== DEBUG START ==========
+        print(f"\n[DEBUG orchestrator.process] ===== PROCESS START =====")
+        print(f"[DEBUG orchestrator.process] bulk_data type: {type(bulk_data)}")
+        if isinstance(bulk_data, dict):
+            print(
+                f"[DEBUG orchestrator.process] bulk_data keys: {list(bulk_data.keys())}"
+            )
+            for key, value in bulk_data.items():
+                if isinstance(value, pd.DataFrame):
+                    print(
+                        f"[DEBUG orchestrator.process] '{key}' DataFrame: {len(value)} rows"
+                    )
+                else:
+                    print(f"[DEBUG orchestrator.process] '{key}' type: {type(value)}")
+        # ========== DEBUG END ==========
+
         # FIX: Extract Port Values DataFrame from template_data dictionary
         port_values_df = template_data.get("Port Values", pd.DataFrame())
 
@@ -133,8 +165,18 @@ class ZeroSalesOptimization(BaseOptimization):
             # Process each sheet separately
             results = {}
 
+            # ========== DEBUG START ==========
+            print(f"\n[DEBUG orchestrator.process] Processing dict with sheets")
+            # ========== DEBUG END ==========
+
             # Process Targeting sheet with bid calculations
             if "Targeting" in bulk_data:
+                # ========== DEBUG START ==========
+                print(
+                    f"[DEBUG orchestrator.process] Found Targeting sheet with {len(bulk_data['Targeting'])} rows"
+                )
+                # ========== DEBUG END ==========
+
                 targeting_results, targeting_details = self.processor.process(
                     bulk_data["Targeting"],
                     port_values_df,  # Pass Port Values DataFrame, not the whole dictionary
@@ -143,6 +185,13 @@ class ZeroSalesOptimization(BaseOptimization):
                     ),  # Pass BA data for Max BA calculation
                     column_mapping,
                 )
+
+                # ========== DEBUG START ==========
+                print(
+                    f"[DEBUG orchestrator.process] Processor returned: {list(targeting_results.keys()) if targeting_results else 'None'}"
+                )
+                # ========== DEBUG END ==========
+
                 if targeting_results:
                     results.update(targeting_results)
 
@@ -152,8 +201,27 @@ class ZeroSalesOptimization(BaseOptimization):
                 ba_df["Operation"] = "Update"
                 results["Bidding Adjustment"] = ba_df
 
+                # ========== DEBUG START ==========
+                print(
+                    f"[DEBUG orchestrator.process] Added Bidding Adjustment sheet with {len(ba_df)} rows to results"
+                )
+                # ========== DEBUG END ==========
+            else:
+                # ========== DEBUG START ==========
+                print(
+                    f"[DEBUG orchestrator.process] No Bidding Adjustment sheet found in bulk_data"
+                )
+                # ========== DEBUG END ==========
+                pass
+
             processing_details = targeting_details if "Targeting" in bulk_data else {}
         else:
+            # ========== DEBUG START ==========
+            print(
+                f"[DEBUG orchestrator.process] Processing single DataFrame (fallback)"
+            )
+            # ========== DEBUG END ==========
+
             # Fallback for old format (single DataFrame)
             results, processing_details = self.processor.process(
                 bulk_data,
@@ -176,6 +244,18 @@ class ZeroSalesOptimization(BaseOptimization):
                 "errors": case_stats.get("processing_errors", 0),
             }
         )
+
+        # ========== DEBUG START ==========
+        print(
+            f"\n[DEBUG orchestrator.process] Final results keys: {list(results.keys())}"
+        )
+        for sheet_name, sheet_df in results.items():
+            if isinstance(sheet_df, pd.DataFrame):
+                print(
+                    f"[DEBUG orchestrator.process] Result '{sheet_name}': {len(sheet_df)} rows"
+                )
+        print(f"[DEBUG orchestrator.process] ===== PROCESS END =====\n")
+        # ========== DEBUG END ==========
 
         if results:
             self.logger.info(

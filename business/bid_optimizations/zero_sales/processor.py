@@ -245,7 +245,7 @@ class ZeroSalesProcessor:
                         case = "A"
                     else:
                         # Case B: No Target CPA + no "up and"
-                        new_bid = base_bid
+                        new_bid = base_bid / (1 + max_ba / 100)
                         case = "B"
 
                     # No calc1/calc2 for cases A/B
