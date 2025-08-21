@@ -77,6 +77,13 @@ class ExcelWriter:
                     self.logger.warning(f"Skipping empty sheet: {sheet_name}")
                     continue
 
+                # ========== DEBUG START ==========
+                print(f"[DEBUG excel_writer] Creating sheet: {sheet_name}")
+                print(
+                    f"[DEBUG excel_writer] Sheet has {len(df)} rows, {len(df.columns)} columns"
+                )
+                # ========== DEBUG END ==========
+
                 # Create worksheet
                 ws = wb.create_sheet(title=self._clean_sheet_name(sheet_name))
 
@@ -111,6 +118,10 @@ class ExcelWriter:
         Excel sheet names must be <= 31 characters and cannot contain: : \ / ? * [ ]
         """
 
+        # ========== DEBUG START ==========
+        print(f"[DEBUG excel_writer] _clean_sheet_name input: '{name}'")
+        # ========== DEBUG END ==========
+
         # Remove invalid characters
         invalid_chars = [":", "\\", "/", "?", "*", "[", "]"]
         for char in invalid_chars:
@@ -118,7 +129,16 @@ class ExcelWriter:
 
         # Truncate to 31 characters
         if len(name) > 31:
+            # ========== DEBUG START ==========
+            print(
+                f"[DEBUG excel_writer] Truncating sheet name from {len(name)} to 31 characters"
+            )
+            # ========== DEBUG END ==========
             name = name[:31]
+
+        # ========== DEBUG START ==========
+        print(f"[DEBUG excel_writer] _clean_sheet_name output: '{name}'")
+        # ========== DEBUG END ==========
 
         return name
 
@@ -245,18 +265,47 @@ class ExcelWriter:
             BytesIO object containing the Working File
         """
 
+        # ========== DEBUG START ==========
+        print("\n[DEBUG excel_writer] ===== create_working_file START =====")
+        print(
+            f"[DEBUG excel_writer] Optimization results keys: {list(optimization_results.keys())}"
+        )
+        # ========== DEBUG END ==========
+
         # Flatten the nested dictionary
         all_sheets = {}
 
         for opt_name, sheets in optimization_results.items():
+            # ========== DEBUG START ==========
+            print(f"\n[DEBUG excel_writer] Processing optimization: '{opt_name}'")
+            print(
+                f"[DEBUG excel_writer] Sheets in this optimization: {list(sheets.keys())}"
+            )
+            # ========== DEBUG END ==========
+
             for sheet_name, df in sheets.items():
+                # ========== DEBUG START ==========
+                print(f"[DEBUG excel_writer] Original sheet_name: '{sheet_name}'")
+                # ========== DEBUG END ==========
+
                 # Use sheet name directly if it already includes optimization name
                 if opt_name.lower() in sheet_name.lower():
                     final_sheet_name = sheet_name
                 else:
                     final_sheet_name = f"{sheet_name} - {opt_name}"
 
+                # ========== DEBUG START ==========
+                print(f"[DEBUG excel_writer] Final sheet_name: '{final_sheet_name}'")
+                # ========== DEBUG END ==========
+
                 all_sheets[final_sheet_name] = df
+
+        # ========== DEBUG START ==========
+        print(
+            f"\n[DEBUG excel_writer] All sheet names to be created: {list(all_sheets.keys())}"
+        )
+        print("[DEBUG excel_writer] ===== create_working_file END =====\n")
+        # ========== DEBUG END ==========
 
         # Generate filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")

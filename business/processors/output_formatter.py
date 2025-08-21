@@ -58,7 +58,7 @@ class OutputFormatter:
             if "targeting" in sheet_name.lower() or "keyword" in sheet_name.lower():
                 # Main sheet - gets helper columns
                 formatted_df = self._format_targeting_sheet(df)
-                formatted_sheets["Clean Zero Sales"] = formatted_df
+                formatted_sheets["Working Sheet"] = formatted_df
 
             elif "bidding" in sheet_name.lower():
                 # Bidding Adjustment - no helper columns
