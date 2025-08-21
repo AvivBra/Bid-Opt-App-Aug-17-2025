@@ -114,10 +114,9 @@ class ValidationSection:
             )
 
             if st.button(
-                "⚡ Process Files",
+                "Process Files",
                 disabled=not button_enabled,
                 use_container_width=True,
-                type="primary",
             ):
                 # Initialize processing state
                 initialize_processing_state()

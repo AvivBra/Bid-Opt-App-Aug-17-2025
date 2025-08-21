@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(python3:*)",
+      "Bash(timeout 10 python3 -m streamlit run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

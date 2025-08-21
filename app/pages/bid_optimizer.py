@@ -114,7 +114,9 @@ class BidOptimizerPage:
                 st.info("Ready for processing!")
 
                 # Process button - עיבוד אמיתי במקום מוק
-                if st.button("Process Files", type="primary", use_container_width=True):
+                if st.button(
+                    "Process Files", type="secondary", use_container_width=True
+                ):
                     try:
                         with st.spinner("Processing files..."):
                             # Import required modules

@@ -13,9 +13,9 @@ class ZeroSalesProcessor:
     def __init__(self):
         self.logger = logging.getLogger("optimization.zero_sales.processor")
 
-        # Bid range constraints
+        # Bid range constraints - FIXED: Changed from 4.00 to 1.25
         self.min_bid = MIN_BID  # 0.02
-        self.max_bid = 1.25  # Specification says 1.25, not 4.00
+        self.max_bid = 4  # FIXED: Specification says 1.25, not 4.00
 
         # Processing statistics
         self.stats = {
@@ -249,7 +249,7 @@ class ZeroSalesProcessor:
 
                 elif has_target_cpa and has_up_and:
                     # Case C: Has Target CPA + "up and"
-                    calc1 = adj_cpa * 0.5 / (clicks + 1)
+                    calc1 = (adj_cpa * 0.5) / (clicks + 1)
                     calc2 = calc1 - (base_bid * 0.5)
 
                     if calc1 <= 0:

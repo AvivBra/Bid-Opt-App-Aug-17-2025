@@ -1,7 +1,7 @@
 """Navigation system for the Bid Optimizer application - Without Main Page."""
 
 import streamlit as st
-from app.ui.sidebar import render_sidebar, get_current_page
+from app.ui.sidebar_backup import render_sidebar, get_current_page
 from app.ui.layout import apply_custom_css
 from app.pages.bid_optimizer import BidOptimizerPage
 
