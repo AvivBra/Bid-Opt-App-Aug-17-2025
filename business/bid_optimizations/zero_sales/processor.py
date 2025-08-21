@@ -182,7 +182,7 @@ class ZeroSalesProcessor:
         return merged
 
     def _calculate_adj_cpa(self, row: pd.Series) -> float:
-        """Calculate Adjusted CPA = Target CPA × (1 + Max BA/100)."""
+        """Calculate Adjusted CPA = Target CPA / (1 + Max BA/100)."""
 
         target_cpa = row.get("Target CPA", np.nan)
         max_ba = row.get("Max BA", 0)
@@ -190,7 +190,7 @@ class ZeroSalesProcessor:
         if pd.isna(target_cpa):
             return np.nan
 
-        return target_cpa * (1 + max_ba / 100)
+        return target_cpa / (1 + max_ba / 100)
 
     def _calculate_all_bids(
         self, df: pd.DataFrame, column_mapping: Dict[str, str]
