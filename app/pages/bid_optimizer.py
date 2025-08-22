@@ -1,4 +1,4 @@
-"""Bid Optimizer page - Complete working version with 5-column layout."""
+"""Bid Optimizer page - Complete working version with 6-column layout."""
 
 import streamlit as st
 from data.template_generator import TemplateGenerator
@@ -15,18 +15,19 @@ class BidOptimizerPage:
 
         apply_custom_css()
 
-        # Create 5 columns layout: [col1 | col2 | col3 | col4 | col5]
-        col1, col2, col3, col4, col5 = st.columns([1, 7, 3, 7, 2])
+        # Create 6 columns layout: [col1 | col2 | col3 | col4 | col5 | col6]
+        # שינוי: הוספת עמודה נוספת והתאמת הפרופורציות
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 7, 1, 1, 6, 2])
 
-        # TITLE IN SECOND COLUMN FROM LEFT
+        # TITLE IN SECOND COLUMN FROM LEFT (נשאר אותו דבר)
         with col2:
             st.markdown(
                 "<h1 style='text-align: left;'>Bid<br>Optimizer</h1>",
                 unsafe_allow_html=True,
             )
 
-        # ALL CONTENT IN FOURTH COLUMN (SECOND FROM RIGHT)
-        with col4:
+        # ALL CONTENT IN FIFTH COLUMN (SECOND FROM RIGHT) - שינוי מ-col4 ל-col5
+        with col5:
             # Optimization selection
             st.markdown(
                 "<h3 style='text-align: left;'>1.Select Optimization</h3>",
@@ -49,11 +50,9 @@ class BidOptimizerPage:
             )
 
             # Download Template button
-            # יצירת Template data
             template_gen = TemplateGenerator()
             template_data = template_gen.generate_template()
 
-            # כפתור הורדה אמיתי
             st.download_button(
                 label="Download Template",
                 data=template_data,
@@ -114,7 +113,7 @@ class BidOptimizerPage:
                 st.success("Template and Bulk files loaded")
                 st.info("Ready for processing!")
 
-                # Process button - עיבוד אמיתי במקום מוק
+                # Process button
                 if st.button(
                     "Process Files", type="secondary", use_container_width=True
                 ):
@@ -219,7 +218,7 @@ class BidOptimizerPage:
                     st.metric("Total Rows", f"{stats.get('total_rows', 0):,}")
                     st.metric("Rows Modified", f"{stats.get('rows_modified', 0):,}")
 
-                # Download Working File - קובץ אמיתי במקום מוק
+                # Download Working File
                 working_file = st.session_state.get("working_file")
                 if working_file:
                     from datetime import datetime
@@ -254,4 +253,4 @@ class BidOptimizerPage:
                         del st.session_state[key]
                     st.rerun()
 
-        # COLUMNS 1, 3 AND 5 STAY EMPTY - not used
+        # COLUMNS 1, 3, 4 AND 6 STAY EMPTY - שינוי בהערה
