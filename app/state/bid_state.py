@@ -76,32 +76,76 @@ class BidState:
         """
         Save bulk file and dataframe to state.
 
+        UPDATED: Clear other bulk types when saving new one (mutual exclusion)
+
         Args:
             bulk_type: Type of bulk file ('60', '30', '7')
             file: File BytesIO object
             df: Parsed DataFrame
         """
+        # Clear all bulk data first (mutual exclusion)
+        self._clear_all_bulk_data()
+
         if bulk_type == "60":
             st.session_state.bulk_60_file = file
             st.session_state.bulk_60_df = df
             st.session_state.bulk_60_uploaded = True
+            st.session_state.active_bulk = "60"
         elif bulk_type == "30":
             st.session_state.bulk_30_file = file
             st.session_state.bulk_30_df = df
             st.session_state.bulk_30_uploaded = True
+            st.session_state.active_bulk = "30"
         elif bulk_type == "7":
             st.session_state.bulk_7_file = file
             st.session_state.bulk_7_df = df
             st.session_state.bulk_7_uploaded = True
+            st.session_state.active_bulk = "7"
 
         # Reset validation when new bulk uploaded
         self.reset_validation()
 
+    def _clear_all_bulk_data(self) -> None:
+        """Clear all bulk data from session (private method)."""
+        # Clear Bulk 60
+        if "bulk_60_file" in st.session_state:
+            del st.session_state.bulk_60_file
+        if "bulk_60_df" in st.session_state:
+            del st.session_state.bulk_60_df
+        st.session_state.bulk_60_uploaded = False
+
+        # Clear Bulk 30
+        if "bulk_30_file" in st.session_state:
+            del st.session_state.bulk_30_file
+        if "bulk_30_df" in st.session_state:
+            del st.session_state.bulk_30_df
+        st.session_state.bulk_30_uploaded = False
+
+        # Clear Bulk 7
+        if "bulk_7_file" in st.session_state:
+            del st.session_state.bulk_7_file
+        if "bulk_7_df" in st.session_state:
+            del st.session_state.bulk_7_df
+        st.session_state.bulk_7_uploaded = False
+
+        # Clear active bulk indicator
+        if "active_bulk" in st.session_state:
+            del st.session_state.active_bulk
+
     def reset_validation(self) -> None:
-        """Reset validation-related state."""
+        """
+        Reset validation-related state.
+
+        UPDATED: Also clear bulk data when validation is reset
+        """
         st.session_state.validation_passed = False
         st.session_state.validation_result = None
         st.session_state.missing_portfolios = []
+
+        # Clear bulk data when validation is reset (optimization changed)
+        if st.session_state.get("optimization_changed", False):
+            self._clear_all_bulk_data()
+            st.session_state.optimization_changed = False
 
         # Also reset processing if it was started
         if st.session_state.get("processing_started"):
@@ -134,6 +178,37 @@ class BidState:
             return st.session_state.get("bulk_7_df")
         return None
 
+    def get_active_bulk(self) -> Optional[pd.DataFrame]:
+        """
+        Get the currently active bulk DataFrame.
+
+        NEW METHOD: Returns whichever bulk is currently active
+
+        Returns:
+            Active bulk DataFrame or None
+        """
+        active_type = st.session_state.get("active_bulk", None)
+
+        if active_type == "60":
+            return st.session_state.get("bulk_60_df")
+        elif active_type == "30":
+            return st.session_state.get("bulk_30_df")
+        elif active_type == "7":
+            return st.session_state.get("bulk_7_df")
+
+        return None
+
+    def get_active_bulk_type(self) -> Optional[str]:
+        """
+        Get the type of currently active bulk.
+
+        NEW METHOD
+
+        Returns:
+            '60', '30', '7', or None
+        """
+        return st.session_state.get("active_bulk", None)
+
     def get_selected_optimizations(self) -> List[str]:
         """Get list of selected optimizations."""
         return st.session_state.get("selected_optimizations", [])
@@ -143,13 +218,63 @@ class BidState:
         st.session_state.selected_optimizations = optimizations
 
     def is_ready_for_processing(self) -> bool:
-        """Check if all conditions are met for processing."""
+        """
+        Check if all conditions are met for processing.
+
+        UPDATED: Check for any bulk file, not just bulk 60
+
+        Returns:
+            True if ready to process
+        """
         return (
             st.session_state.get("template_uploaded", False)
-            and st.session_state.get("bulk_60_uploaded", False)
+            and self.has_any_bulk()  # Changed from bulk_60_uploaded
             and st.session_state.get("validation_passed", False)
             and len(st.session_state.get("selected_optimizations", [])) > 0
         )
+
+    def has_any_bulk(self) -> bool:
+        """
+        Check if any bulk file is uploaded.
+
+        NEW METHOD
+
+        Returns:
+            True if any bulk file is uploaded
+        """
+        return (
+            st.session_state.get("bulk_60_uploaded", False)
+            or st.session_state.get("bulk_30_uploaded", False)
+            or st.session_state.get("bulk_7_uploaded", False)
+        )
+
+    def handle_optimization_change(self, new_optimization: str) -> None:
+        """
+        Handle optimization change.
+
+        NEW METHOD
+
+        Args:
+            new_optimization: Name of the newly selected optimization
+        """
+        current_optimization = st.session_state.get("current_optimization", None)
+
+        if current_optimization != new_optimization:
+            # Mark that optimization changed
+            st.session_state.optimization_changed = True
+            st.session_state.current_optimization = new_optimization
+
+            # Clear bulk data and validation
+            self._clear_all_bulk_data()
+            self.reset_validation()
+
+            # Update bulk type based on optimization
+            if new_optimization == "Zero Sales":
+                st.session_state.active_bulk_type = "60"
+            elif new_optimization == "Bids 30 Days":
+                st.session_state.active_bulk_type = "30"
+            else:
+                st.session_state.active_bulk_type = None
 
     def start_processing(self) -> None:
         """Initialize processing state."""
@@ -243,9 +368,9 @@ class BidState:
 
     def has_required_files(self) -> bool:
         """Check if required files (template and bulk) are uploaded."""
-        return st.session_state.get(
-            "template_uploaded", False
-        ) and st.session_state.get("bulk_60_uploaded", False)
+        return (
+            st.session_state.get("template_uploaded", False) and self.has_any_bulk()
+        )  # Changed to has_any_bulk
 
 
 # Backward compatibility - keep the standalone functions as well

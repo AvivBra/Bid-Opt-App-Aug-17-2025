@@ -66,33 +66,61 @@ class UploadSection:
                 self._process_template_upload(uploaded_file)
 
     def _render_bulk_section(self) -> None:
-        """Render bulk files upload section."""
+        """Render bulk files upload section with dynamic enable/disable based on selection."""
+
+        # Get active bulk type from session state
+        active_bulk_type = st.session_state.get("active_bulk_type", None)
+
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            # Bulk 60 (enabled)
-            uploaded_file = st.file_uploader(
-                "Upload Bulk 60",
-                type=["xlsx", "csv"],
-                key="bulk_60_upload",
-                help="Upload your 60-day Bulk file from Amazon",
-            )
+            # Bulk 60 - enabled only if bulk_type is "60"
+            if active_bulk_type == "60":
+                uploaded_file = st.file_uploader(
+                    "Upload Bulk 60",
+                    type=["xlsx", "csv"],
+                    key="bulk_60_upload",
+                    help="Upload your 60-day Bulk file from Amazon Ads",
+                )
 
-            if uploaded_file is not None:
-                self._process_bulk_upload(uploaded_file, "60")
+                if uploaded_file is not None:
+                    self._process_bulk_upload(uploaded_file, "60")
+            else:
+                st.markdown("##### Bulk 60")
+                st.button(
+                    "Select Zero Sales first"
+                    if active_bulk_type != "60"
+                    else "Disabled",
+                    disabled=True,
+                    use_container_width=True,
+                    key="bulk_60_disabled",
+                )
 
         with col2:
-            # Bulk 30 (disabled)
-            st.markdown("##### Bulk 30")
-            st.button(
-                "Coming Soon",
-                disabled=True,
-                use_container_width=True,
-                key="bulk_30_disabled",
-            )
+            # Bulk 30 - enabled only if bulk_type is "30"
+            if active_bulk_type == "30":
+                uploaded_file = st.file_uploader(
+                    "Upload Bulk 30",
+                    type=["xlsx", "csv"],
+                    key="bulk_30_upload",
+                    help="Upload your 30-day Bulk file from Amazon Ads",
+                )
+
+                if uploaded_file is not None:
+                    self._process_bulk_upload(uploaded_file, "30")
+            else:
+                st.markdown("##### Bulk 30")
+                st.button(
+                    "Select Bids 30 Days first"
+                    if active_bulk_type != "30"
+                    else "Coming Soon",
+                    disabled=True,
+                    use_container_width=True,
+                    key="bulk_30_disabled",
+                )
 
         with col3:
-            # Bulk 7 (disabled)
+            # Bulk 7 (disabled - future feature)
             st.markdown("##### Bulk 7")
             st.button(
                 "Coming Soon",
@@ -101,7 +129,7 @@ class UploadSection:
                 key="bulk_7_disabled",
             )
 
-        # Data Rova (disabled)
+        # Data Rova (disabled - future feature)
         st.markdown("##### Data Rova Integration")
         st.button(
             "Coming Soon",
@@ -175,7 +203,11 @@ class UploadSection:
 
     def _display_upload_status(self) -> None:
         """Display current upload status."""
-        if self.bid_state.has_template() or self.bid_state.has_bulk("60"):
+        if (
+            self.bid_state.has_template()
+            or self.bid_state.has_bulk("60")
+            or self.bid_state.has_bulk("30")
+        ):
             st.markdown("---")
             st.markdown("#### Uploaded Files")
 
@@ -186,6 +218,11 @@ class UploadSection:
                 bulk_df = self.bid_state.get_bulk("60")
                 if bulk_df is not None:
                     st.success(f"Bulk 60 file uploaded ({len(bulk_df):,} rows)")
+
+            if self.bid_state.has_bulk("30"):
+                bulk_df = self.bid_state.get_bulk("30")
+                if bulk_df is not None:
+                    st.success(f"Bulk 30 file uploaded ({len(bulk_df):,} rows)")
 
 
 # Standalone functions for backward compatibility

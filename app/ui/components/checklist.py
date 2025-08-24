@@ -13,6 +13,13 @@ class OptimizationChecklist:
             "name": "Zero Sales",
             "enabled": True,
             "description": "Optimize bids for products with zero sales",
+            "bulk_type": "60",
+        },
+        {
+            "name": "Bids 30 Days",
+            "enabled": True,
+            "description": "Optimize bids for products with sales in last 30 days",
+            "bulk_type": "30",
         },
         {"name": "Low Impressions", "enabled": False, "description": "Coming Soon"},
         {"name": "High ACOS", "enabled": False, "description": "Coming Soon"},
@@ -45,15 +52,22 @@ class OptimizationChecklist:
         """Initialize session state for selections."""
         if "selected_optimizations" not in st.session_state:
             st.session_state.selected_optimizations = []
+        if "active_bulk_type" not in st.session_state:
+            st.session_state.active_bulk_type = None
 
     def render(self) -> List[str]:
         """
-        Render the optimization checklist.
+        Render the optimization checklist with single selection only.
 
+        When one optimization is selected, all others become disabled.
         Returns:
-            List of selected optimization names
+            List of selected optimization names (max 1)
         """
         selected = []
+
+        # Check if any optimization is currently selected
+        currently_selected = st.session_state.get("selected_optimizations", [])
+        has_selection = len(currently_selected) > 0
 
         # Create two columns for better layout
         col1, col2 = st.columns(2)
@@ -64,16 +78,39 @@ class OptimizationChecklist:
 
             with col:
                 if opt["enabled"]:
-                    # Enabled checkbox
-                    is_selected = st.checkbox(
-                        opt["name"],
-                        key=f"opt_{opt['name'].replace(' ', '_')}",
-                        help=opt.get("description", ""),
-                    )
-                    if is_selected:
-                        selected.append(opt["name"])
+                    # Check if this optimization is selected
+                    is_selected = opt["name"] in currently_selected
+
+                    # Disable if another optimization is selected
+                    is_disabled = has_selection and not is_selected
+
+                    # Render checkbox
+                    if is_disabled:
+                        # Show as disabled
+                        st.checkbox(
+                            opt["name"],
+                            key=f"opt_{opt['name'].replace(' ', '_')}_disabled",
+                            value=False,
+                            disabled=True,
+                            help=f"{opt.get('description', '')} - Deselect current optimization first",
+                        )
+                    else:
+                        # Active checkbox
+                        checkbox_value = st.checkbox(
+                            opt["name"],
+                            key=f"opt_{opt['name'].replace(' ', '_')}",
+                            value=is_selected,
+                            help=opt.get("description", ""),
+                        )
+
+                        if checkbox_value:
+                            selected.append(opt["name"])
+
+                            # Set active bulk type
+                            if "bulk_type" in opt:
+                                st.session_state.active_bulk_type = opt["bulk_type"]
                 else:
-                    # Disabled checkbox with "Coming Soon"
+                    # Coming Soon checkbox (always disabled)
                     st.checkbox(
                         f"{opt['name']} (Coming Soon)",
                         key=f"opt_{opt['name'].replace(' ', '_')}_disabled",
@@ -84,7 +121,40 @@ class OptimizationChecklist:
         # Update session state
         st.session_state.selected_optimizations = selected
 
+        # Clear bulk data if optimization changed
+        if selected != currently_selected:
+            self._handle_optimization_change(selected)
+
         return selected
+
+    def _handle_optimization_change(self, new_selection: List[str]):
+        """
+        Handle optimization change - clear bulk data and update bulk type.
+
+        Args:
+            new_selection: New list of selected optimizations
+        """
+        # Clear bulk data from session
+        if "bulk_60_df" in st.session_state:
+            del st.session_state.bulk_60_df
+        if "bulk_30_df" in st.session_state:
+            del st.session_state.bulk_30_df
+        if "bulk_60_uploaded" in st.session_state:
+            st.session_state.bulk_60_uploaded = False
+        if "bulk_30_uploaded" in st.session_state:
+            st.session_state.bulk_30_uploaded = False
+
+        # Update active bulk type
+        if new_selection:
+            opt_info = self.get_optimization_info(new_selection[0])
+            if opt_info and "bulk_type" in opt_info:
+                st.session_state.active_bulk_type = opt_info["bulk_type"]
+        else:
+            st.session_state.active_bulk_type = None
+
+        # Reset validation
+        if "validation_passed" in st.session_state:
+            st.session_state.validation_passed = False
 
     def get_selected(self) -> List[str]:
         """Get currently selected optimizations."""
@@ -92,16 +162,19 @@ class OptimizationChecklist:
 
     def set_selected(self, optimizations: List[str]):
         """Set selected optimizations."""
+        # Ensure only one selection
+        if len(optimizations) > 1:
+            optimizations = optimizations[:1]
         st.session_state.selected_optimizations = optimizations
 
     def clear_all(self):
         """Clear all selections."""
         st.session_state.selected_optimizations = []
+        st.session_state.active_bulk_type = None
 
     def select_all_enabled(self):
-        """Select all enabled optimizations."""
-        enabled = [opt["name"] for opt in self.OPTIMIZATIONS if opt["enabled"]]
-        st.session_state.selected_optimizations = enabled
+        """Not applicable - only one selection allowed."""
+        pass
 
     def is_any_selected(self) -> bool:
         """Check if any optimization is selected."""
@@ -114,6 +187,11 @@ class OptimizationChecklist:
             if opt["name"] == name:
                 return opt
         return None
+
+    @staticmethod
+    def get_active_bulk_type() -> str:
+        """Get the bulk type for active optimization."""
+        return st.session_state.get("active_bulk_type", None)
 
 
 # Standalone function for backward compatibility
@@ -136,6 +214,9 @@ def get_selected_optimizations() -> List[str]:
 
 def set_selected_optimizations(optimizations: List[str]):
     """Set selected optimizations."""
+    # Ensure only one selection
+    if len(optimizations) > 1:
+        optimizations = optimizations[:1]
     st.session_state.selected_optimizations = optimizations
 
 
@@ -147,3 +228,9 @@ def is_any_optimization_selected() -> bool:
 def clear_optimization_selections():
     """Clear all optimization selections."""
     st.session_state.selected_optimizations = []
+    st.session_state.active_bulk_type = None
+
+
+def get_active_bulk_type() -> str:
+    """Get the bulk type for active optimization."""
+    return st.session_state.get("active_bulk_type", None)
