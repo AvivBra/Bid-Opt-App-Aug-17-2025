@@ -205,12 +205,9 @@ class Bids30DaysOptimization(BaseOptimization):
                 results["Bidding Adjustment"] = ba_df
                 print(f"[DEBUG] Added Bidding Adjustment sheet - {len(ba_df)} rows")
 
-            # Keep Product Ad if exists
-            if "Product Ad" in bulk_data:
-                pa_df = bulk_data["Product Ad"].copy()
-                pa_df["Operation"] = "Update"
-                results["Product Ad"] = pa_df
-                print(f"[DEBUG] Added Product Ad sheet - {len(pa_df)} rows")
+            # REMOVED: Product Ad sheet handling (lines 63-66 removed)
+            # Product Ad sheet is NOT part of Bids 30 Days output
+
         else:
             # Single DataFrame processing
             print(f"[DEBUG] Processing single DataFrame - {len(bulk_data)} rows")
@@ -319,64 +316,20 @@ class Bids30DaysOptimization(BaseOptimization):
 
     def _generate_success_message(self) -> str:
         """Generate detailed success message."""
-
         stats = self.get_statistics()
-
-        message_parts = [
-            f"Bids 30 Days optimization complete:",
-            f"{stats.get('rows_processed', 0)} rows processed",
+        msg_parts = [
+            f"✓ Processed {stats.get('rows_processed', 0)} rows",
+            f"✓ Modified {stats.get('rows_modified', 0)} bids",
         ]
 
         if stats.get("rows_to_harvesting", 0) > 0:
-            message_parts.append(
-                f"{stats.get('rows_to_harvesting', 0)} moved to For Harvesting"
-            )
-
-        if stats.get("rows_with_cvr_low", 0) > 0:
-            message_parts.append(
-                f"{stats.get('rows_with_cvr_low', 0)} rows with CVR < 8%"
+            msg_parts.append(
+                f"✓ Moved {stats.get('rows_to_harvesting', 0)} rows to For Harvesting"
             )
 
         if stats.get("calculation_errors", 0) > 0:
-            message_parts.append(
-                f"{stats.get('calculation_errors', 0)} calculation errors"
+            msg_parts.append(
+                f"⚠ {stats.get('calculation_errors', 0)} calculation errors"
             )
 
-        return " | ".join(message_parts)
-
-    def get_processing_summary(self) -> Dict[str, Any]:
-        """Get summary of processing steps and conditions."""
-
-        return {
-            "filtering_criteria": {
-                "units": "> 0",
-                "additional": "units > 2 OR clicks > 30",
-                "state": "enabled",
-                "excluded_portfolios": 10,
-                "ignored_portfolios": "Base Bid = 'Ignore'",
-            },
-            "calculation_steps": {
-                "step_1": "Fill base columns (Old Bid, Target CPA, Base Bid, Max BA, Adj. CPA)",
-                "step_2": "Separate NULL Target CPA to For Harvesting",
-                "step_3": "Calculate calc1 and calc2 based on 'up and' in campaign name",
-                "step_4": "Determine Temp Bid based on calc2 threshold (1.1)",
-                "step_5": "Calculate Max Bid based on units threshold (3)",
-                "step_6": "Calculate calc3 = Temp Bid - Max Bid",
-                "step_7": "Determine final Bid based on calc3",
-                "step_8": "Mark rows for pink highlighting",
-            },
-            "highlighting_conditions": {
-                "pink_rows": [
-                    "Conversion Rate < 0.08",
-                    "Bid < 0.02",
-                    "Bid > 1.25",
-                    "Calculation errors",
-                ],
-                "blue_headers": "Columns participating in processing",
-            },
-            "output_sheets": {
-                "Targeting": "58 columns (48 original + 10 helper)",
-                "Bidding Adjustment": "48 columns (original only)",
-                "For Harvesting": "58 columns (NULL Target CPA rows)",
-            },
-        }
+        return "\n".join(msg_parts)

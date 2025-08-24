@@ -22,7 +22,7 @@ OLD_BID_MULTIPLIER = 1.1
 # Column names for helper columns (in order)
 HELPER_COLUMNS = [
     "Max BA",
-    "Base Bid", 
+    "Base Bid",
     "Target CPA",
     "Adj. CPA",
     "Old Bid",
@@ -30,7 +30,7 @@ HELPER_COLUMNS = [
     "Max_Bid",
     "calc3",
     "calc2",
-    "calc1"
+    "calc1",
 ]
 
 # Sheet names for output
@@ -47,8 +47,8 @@ ENTITY_PRODUCT_AD = "Product Ad"
 # Match types
 MATCH_TYPE_EXACT = "Exact"
 
-# Product targeting patterns
-ASIN_PATTERN = "asin=B0"
+# Product targeting patterns - FIXED
+ASIN_PATTERN = 'asin="B0'  # Looking for asin="B0 (with quote)
 
 # State values
 STATE_ENABLED = "enabled"
@@ -72,5 +72,5 @@ EXCLUDED_PORTFOLIOS = [
     "Flat 15",
     "Flat 40 | Opt",
     "Flat 20 | Opt",
-    "Flat 15 | Opt"
+    "Flat 15 | Opt",
 ]
