@@ -1,5 +1,5 @@
 # ארכיטקטורת קבצים - הצעה ל-Bids 30 Days
-**תאריך: 17/08/2025 11:45**
+**תאריך: 17/08/2025 12:35**
 
 ## עץ קבצים עם סימונים
 
@@ -40,7 +40,7 @@
 │   │   │   ├── orchestrator.py [חדש]
 │   │   │   ├── processor.py [חדש]
 │   │   │   ├── validator.py [חדש]
-│   │   │   ├── formatter.py [חדש]
+│   │   │   ├── output_formatter_30_days.py [חדש]
 │   │   │   └── constants.py [חדש]
 │   │   └── base_optimization.py
 │   ├── common
@@ -93,7 +93,7 @@
   - `orchestrator.py` - מתאם האופטימיזציה
   - `processor.py` - עיבוד הנתונים
   - `validator.py` - ולידציה
-  - `formatter.py` - פורמט פלט ספציפי (כולל צביעת עמודות)
+  - `output_formatter_30_days.py` - פורמט פלט ספציפי (כולל צביעת עמודות)
   - `constants.py` - קבועים ספציפיים לאופטימיזציה
 
 ### קבצים לעריכה (5):
