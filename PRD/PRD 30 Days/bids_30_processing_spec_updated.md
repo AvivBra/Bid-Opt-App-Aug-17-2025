@@ -1,5 +1,5 @@
 # מסמך עיבוד - Bids 30 Days
-**תאריך: 08:00**
+**תאריך: 13:05**
 
 ## לוגיקת IF-THEN
 
@@ -30,7 +30,7 @@ Highlight in blue:
 - units
 - Match Type
 - Product Targeting Expression
-- Conversion Rate
+- Conversion Rate (עמודה 55 בבאלק המקורי)
 - Entity
 - State
 - Campaign State (Informational only)
@@ -119,7 +119,7 @@ ELSE
 
 ### שלב 8: צביעת שורות בוורוד (רק בגיליון Targeting)
 ```
-IF (value in "Conversion Rate" column < 0.08
+IF (value in "Conversion Rate" column (עמודה 55 בבאלק המקורי) < 0.08
     OR
     Error in any calculation
     OR
@@ -132,6 +132,7 @@ IF (value in "Conversion Rate" column < 0.08
         Include in output file
         
 Note: No pink highlighting in "Bidding Adjustment" sheet
+Note: Conversion Rate data comes from column #55 in the original Bulk file
 ```
 
 ### שלב 9: חיווים על המסך (במקביל להצגת כפתור הורדה)
