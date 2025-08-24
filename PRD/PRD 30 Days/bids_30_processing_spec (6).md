@@ -1,0 +1,99 @@
+# מסמך עיבוד - Bids 30 Days
+**תאריך: 08:00**
+
+## לוגיקת IF-THEN
+
+### שלב 0: יצירת עמודות עזר ריקות (סדר הופעה בפלט)
+```
+Create empty columns:
+- Old Bid
+- calc1
+- calc2
+- Target CPA
+- Base Bid
+- Adj. CPA
+- Max BA
+- Temp Bid
+- Max_Bid
+- calc3
+```
+
+### שלב 1: מילוי עמודות בסיס
+```
+Old_Bid = Copy current Bid value
+Target_CPA = VLOOKUP(Portfolio_Name from Template Port_Values)
+Base_Bid = VLOOKUP(Portfolio_Name from Template Port_Values)
+Max_BA = MAX(Percentage) per Campaign_ID
+Adj_CPA = Target_CPA / (1 + Max_BA/100)
+```
+
+### שלב 2: חלוקה לפי Target CPA
+```
+IF (Target CPA = NULL)
+    THEN:
+        - Create new sheet "For Harvesting"
+        - Move these rows to the new sheet
+        - Remove from current sheet
+   
+ELSE IF (Target CPA EXISTS)
+    THEN → Continue to Step 3
+```
+
+### שלב 3: חישוב Calc
+```
+IF ("Campaign Name (Informational only)" contains "up and")
+    THEN:
+        calc1 = Adj.CPA * 0.5 / (clicks/units)
+        calc2 = calc1 / Old Bid
+ELSE
+    THEN:
+        calc1 = Adj.CPA / (clicks/units)
+        calc2 = calc1 / Old Bid
+```
+
+### שלב 4: קביעת Temp Bid
+```
+IF (calc2 < 1.1)
+    THEN:
+        Bid = calc1  [FINAL - Skip to next row]
+        
+ELSE IF (calc2 >= 1.1)
+    THEN:
+        IF (Match Type = "Exact" OR Product Targeting Expression CONTAINS "asin=B0")
+            THEN:
+                Temp_Bid = calc1  [Continue to Step 5]
+        ELSE
+            THEN:
+                Bid = Old Bid * 1.1  [FINAL - Skip to next row]
+```
+
+### שלב 5: חישוב Max Bid
+```
+IF (calc2 >= 1.1 
+    AND 
+    ((Product Targeting Expression CONTAINS "asin=B0") OR (Match Type = "Exact")))
+    THEN:
+        IF (units < 3)
+            THEN:
+                Max_Bid = 0.8 / (1 + Max_BA/100)
+        ELSE
+            THEN:
+                Max_Bid = 1.25 / (1 + Max_BA/100)
+```
+
+### שלב 6: חישוב calc3
+```
+IF (Max_Bid EXISTS)
+    THEN:
+        calc3 = Temp_Bid - Max_Bid
+```
+
+### שלב 7: חישוב Bid עבור שורות עם Max Bid
+```
+IF (calc3 < 0)
+    THEN:
+        Bid = Max_Bid
+ELSE
+    THEN:
+        Bid = Temp_Bid
+```
