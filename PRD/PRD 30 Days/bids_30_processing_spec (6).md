@@ -18,6 +18,25 @@ Create empty columns:
 - calc3
 ```
 
+### צביעת כותרות עמודות שקיימות בבאלק המקורי ומשתתפות בעיבוד בתכלת
+```
+Highlight in blue:
+- Bid
+- Portfolio Name (Informational only)
+- Campaign ID
+- Campaign Name (Informational only)
+- Percentage
+- clicks
+- units
+- Match Type
+- Product Targeting Expression
+- Conversion Rate
+- Entity
+- State
+- Campaign State (Informational only)
+- Ad Group State (Informational only)
+```
+
 ### שלב 1: מילוי עמודות בסיס
 ```
 Old_Bid = Copy current Bid value
@@ -100,7 +119,7 @@ ELSE
 
 ### שלב 8: צביעת שורות בוורוד (רק בגיליון Targeting)
 ```
-IF (Conversion Rate < 0.08
+IF (value in "Conversion Rate" column < 0.08
     OR
     Error in any calculation
     OR
