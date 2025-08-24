@@ -17,7 +17,7 @@ class OptimizationChecklist:
         },
         {
             "name": "Bids 30 Days",
-            "enabled": True,
+            "enabled": True,  # NOW ENABLED!
             "description": "Optimize bids for products with sales in last 30 days",
             "bulk_type": "30",
         },

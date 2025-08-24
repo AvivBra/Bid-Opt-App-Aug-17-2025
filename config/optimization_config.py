@@ -1,6 +1,7 @@
 """Optimization configuration settings."""
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+import pandas as pd
 
 
 # Bid value constraints
@@ -70,10 +71,10 @@ ZERO_SALES_CONFIG = {
     },
 }
 
-# Bids 30 Days optimization settings (NEW)
+# Bids 30 Days optimization settings (ENABLED NOW!)
 BIDS_30_DAYS_CONFIG = {
     "name": "Bids 30 Days",
-    "enabled": True,  # Set to True to enable in Phase 5
+    "enabled": True,  # CHANGED TO True - NOW ACTIVE!
     "description": "Optimize bids for products with sales in last 30 days",
     # Filtering criteria
     "filters": {
@@ -232,16 +233,54 @@ ALL_OPTIMIZATIONS = [
     *FUTURE_OPTIMIZATIONS.values(),
 ]
 
+# ============================================================================
+# EXCEL FORMATTING CONFIGURATION - GLOBAL SETTINGS
+# ============================================================================
+
+# Columns that should ALWAYS be formatted as text to prevent scientific notation
+TEXT_FORMAT_COLUMNS = [
+    "Campaign ID",
+    "Ad Group ID",
+    "Portfolio ID",
+    "Keyword ID",
+    "Product Targeting ID",
+    "Campaign Id",
+    "Ad Group Id",
+    "Portfolio Id",
+    "Keyword Id",
+    "Product Targeting Id",
+    "ASIN",
+    "SKU",
+    "Item ID",
+    "Order ID",
+    "Customer ID",
+    "Transaction ID",
+]
+
+# The main Bid column - helper columns will be inserted BEFORE this
+BID_COLUMN_NAME = "Bid"
+
+# Standard row height for all rows (in Excel points)
+STANDARD_ROW_HEIGHT = 15
+
+# Column width settings - ALL columns will have same width
+COLUMN_WIDTH_SETTINGS = {
+    "standard_width": 15,  # All columns will be this width
+    "min_width": 8,
+    "max_width": 50,
+    "use_uniform_width": True,  # Set to True to make all columns same width
+}
+
 # Excel formatting configuration
 EXCEL_FORMATTING = {
     "error_color": "FFE4E1",  # Light pink for errors
     "header_color": "E0E0E0",  # Light gray for headers
-    "blue_header_color": "87CEEB",  # Light blue for participating columns (NEW)
+    "blue_header_color": "87CEEB",  # Light blue for participating columns
     "max_sheet_name_length": 31,
     "freeze_header": True,
-    "auto_column_width": True,
+    "auto_column_width": False,  # Changed to False - use uniform width
     "number_format": {
-        "bid": "0.000",  # Changed to 3 decimal places
+        "bid": "0.000",  # 3 decimal places
         "currency": "$#,##0.00",
         "percentage": "0.00%",
         "integer": "#,##0",
@@ -308,8 +347,159 @@ UI_CONFIG = {
     "enable_dark_mode": True,
     "sidebar_width": 200,
     "main_content_max_width": 800,
-    "single_optimization_only": True,  # Only one optimization at a time (NEW)
+    "single_optimization_only": True,  # Only one optimization at a time
 }
+
+# ============================================================================
+# EXCEL FORMATTING FUNCTIONS - DO NOT MODIFY FOR NEW OPTIMIZATIONS
+# ============================================================================
+
+
+def apply_text_format_before_write(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert ID columns to string format before writing to Excel.
+    This prevents Excel from converting long numbers to scientific notation.
+
+    ALWAYS call this function before writing DataFrame to Excel!
+
+    Args:
+        df: DataFrame to process
+
+    Returns:
+        DataFrame with ID columns converted to strings
+    """
+    df_copy = df.copy()
+
+    for col in df_copy.columns:
+        if should_format_as_text(col):
+            # Convert to string and preserve all digits
+            if col in df_copy.columns:
+                # Handle NaN values
+                mask = df_copy[col].notna()
+
+                # Convert to string, removing decimal points for integers
+                df_copy.loc[mask, col] = df_copy.loc[mask, col].apply(
+                    lambda x: str(int(x))
+                    if isinstance(x, (int, float)) and x == int(x)
+                    else str(x)
+                    if pd.notna(x)
+                    else ""
+                )
+
+    return df_copy
+
+
+def should_format_as_text(column_name: str) -> bool:
+    """
+    Check if column should be formatted as text.
+
+    Args:
+        column_name: Name of the column
+
+    Returns:
+        True if column should be text formatted
+    """
+    # Check explicit list
+    if column_name in TEXT_FORMAT_COLUMNS:
+        return True
+
+    # Check patterns
+    patterns = ["ID", "Id", "ASIN", "SKU", "Code", "Number"]
+    return any(pattern in column_name for pattern in patterns)
+
+
+def get_helper_column_position(original_columns: List[str]) -> int:
+    """
+    Get the position where helper columns should be inserted.
+    Helper columns ALWAYS go immediately BEFORE the Bid column.
+
+    Args:
+        original_columns: List of original column names
+
+    Returns:
+        Index position for helper column insertion
+    """
+    try:
+        # Find Bid column position
+        bid_index = original_columns.index(BID_COLUMN_NAME)
+        return bid_index  # Insert before Bid
+    except ValueError:
+        # If Bid not found, try alternative names
+        for alt_name in ["Max CPC", "Max Bid", "Default Bid"]:
+            try:
+                return original_columns.index(alt_name)
+            except ValueError:
+                continue
+        # Default to position 10 if no bid column found
+        return 10
+
+
+def arrange_columns_with_helpers(
+    df: pd.DataFrame, original_columns: List[str], helper_columns: List[str]
+) -> pd.DataFrame:
+    """
+    Arrange DataFrame columns with helper columns in correct position.
+    Helper columns will be placed immediately BEFORE the Bid column.
+
+    Args:
+        df: DataFrame to arrange
+        original_columns: List of original column names
+        helper_columns: List of helper column names
+
+    Returns:
+        DataFrame with columns in correct order
+    """
+    # Get position for helper columns
+    insert_position = get_helper_column_position(original_columns)
+
+    # Split original columns
+    before_bid = original_columns[:insert_position]
+    from_bid_onwards = original_columns[insert_position:]
+
+    # Build final column order
+    final_order = before_bid + helper_columns + from_bid_onwards
+
+    # Ensure all columns exist in DataFrame
+    for col in final_order:
+        if col not in df.columns:
+            df[col] = ""
+
+    # Return with correct column order
+    return df[final_order]
+
+
+def apply_uniform_column_widths(worksheet, column_count: int):
+    """
+    Apply uniform width to all columns in worksheet.
+
+    Args:
+        worksheet: Openpyxl worksheet object
+        column_count: Number of columns
+    """
+    from openpyxl.utils import get_column_letter
+
+    if COLUMN_WIDTH_SETTINGS["use_uniform_width"]:
+        width = COLUMN_WIDTH_SETTINGS["standard_width"]
+        for col_idx in range(1, column_count + 1):
+            col_letter = get_column_letter(col_idx)
+            worksheet.column_dimensions[col_letter].width = width
+
+
+def apply_standard_row_heights(worksheet, row_count: int):
+    """
+    Apply standard height to all rows.
+
+    Args:
+        worksheet: Openpyxl worksheet object
+        row_count: Number of rows (excluding header)
+    """
+    for row_idx in range(1, row_count + 2):  # +2 for header and 1-based index
+        worksheet.row_dimensions[row_idx].height = STANDARD_ROW_HEIGHT
+
+
+# ============================================================================
+# ORIGINAL HELPER FUNCTIONS
+# ============================================================================
 
 
 def get_optimization_config(optimization_name: str) -> Dict[str, Any]:
@@ -403,8 +593,6 @@ def validate_bid_value(bid: float, optimization_name: str = "zero_sales") -> boo
     Returns:
         True if bid is valid
     """
-
-    import pandas as pd
 
     if pd.isna(bid):
         return False

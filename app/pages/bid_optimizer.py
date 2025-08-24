@@ -34,11 +34,21 @@ class BidOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            zero_sales = st.checkbox("Zero Sales", value=True, key="opt_zero_sales")
+            # Use radio buttons for single selection
+            optimization = st.radio(
+                "Select optimization:",
+                ["Zero Sales", "Bids 30 Days"],
+                index=0,  # Default to Zero Sales
+                key="optimization_selection",
+            )
+
+            # Set flags based on selection
+            zero_sales = optimization == "Zero Sales"
+            bids_30_days = optimization == "Bids 30 Days"
 
             st.markdown(
                 """
-                <div style='height: 200px;'></div>
+                <div style='height: 150px;'></div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -69,24 +79,45 @@ class BidOptimizerPage:
                 st.session_state.template_uploaded = True
                 st.success("Template uploaded!")
 
-            # Upload files - bulk
-            bulk_file = st.file_uploader(
-                "Bulk 60 Days", type=["xlsx", "csv"], key="bulk_uploader"
-            )
-            if bulk_file:
-                st.session_state.bulk_60_uploaded = True
-                st.success("Bulk 60 uploaded!")
+            # Upload files - bulk 60 (only show if Zero Sales selected)
+            if zero_sales:
+                bulk_60_file = st.file_uploader(
+                    "Bulk 60 Days", type=["xlsx", "csv"], key="bulk_60_uploader"
+                )
+                if bulk_60_file:
+                    st.session_state.bulk_60_uploaded = True
+                    st.success("Bulk 60 uploaded!")
+            elif not zero_sales and not bids_30_days:
+                st.button(
+                    "Bulk 60 Days (Select Zero Sales first)",
+                    disabled=True,
+                    use_container_width=True,
+                )
 
-            # Disabled buttons
+            # Upload files - bulk 30 (only show if Bids 30 Days selected)
+            if bids_30_days:
+                bulk_30_file = st.file_uploader(
+                    "Bulk 30 Days", type=["xlsx", "csv"], key="bulk_30_uploader"
+                )
+                if bulk_30_file:
+                    st.session_state.bulk_30_uploaded = True
+                    st.success("Bulk 30 uploaded!")
+            elif not bids_30_days and not zero_sales:
+                st.button(
+                    "Bulk 30 Days (Select Bids 30 Days first)",
+                    disabled=True,
+                    use_container_width=True,
+                )
+            elif zero_sales:
+                st.button(
+                    "Bulk 30 Days (Not needed for Zero Sales)",
+                    disabled=True,
+                    use_container_width=True,
+                )
+
+            # Disabled button - Bulk 7
             st.button(
                 "Bulk 7 Days (Coming Soon)",
-                disabled=True,
-                use_container_width=True,
-                help="This feature will be available in a future update",
-            )
-
-            st.button(
-                "Bulk 30 Days (Coming Soon)",
                 disabled=True,
                 use_container_width=True,
                 help="This feature will be available in a future update",
@@ -100,17 +131,32 @@ class BidOptimizerPage:
                 help="This feature will be available in a future update",
             )
 
-            # Validation Section - Only show if files uploaded
-            if st.session_state.get("template_uploaded") and st.session_state.get(
-                "bulk_60_uploaded"
+            # Validation Section - Show based on selected optimization
+            show_validation = False
+
+            if (
+                zero_sales
+                and st.session_state.get("template_uploaded")
+                and st.session_state.get("bulk_60_uploaded")
             ):
+                show_validation = True
+                bulk_type = "60"
+            elif (
+                bids_30_days
+                and st.session_state.get("template_uploaded")
+                and st.session_state.get("bulk_30_uploaded")
+            ):
+                show_validation = True
+                bulk_type = "30"
+
+            if show_validation:
                 st.markdown(
                     "<h3 style='text-align: center;'>3. Data Validation</h3>",
                     unsafe_allow_html=True,
                 )
 
                 # Validation status
-                st.success("Template and Bulk files loaded")
+                st.success(f"Template and Bulk {bulk_type} files loaded")
                 st.info("Ready for processing!")
 
                 # Process button
@@ -122,135 +168,139 @@ class BidOptimizerPage:
                             # Import required modules
                             import pandas as pd
                             from datetime import datetime
-                            from business.bid_optimizations.zero_sales.orchestrator import (
-                                ZeroSalesOptimization,
-                            )
                             from business.processors.output_formatter import (
                                 OutputFormatter,
                             )
-                            from data.writers.excel_writer import ExcelWriter
-                            from data.readers.excel_reader import ExcelReader
 
-                            # Initialize components
-                            excel_reader = ExcelReader()
-                            zero_sales = ZeroSalesOptimization()
-                            formatter = OutputFormatter()
-                            excel_writer = ExcelWriter()
-
-                            # Read template data
-                            success, msg, template_data = (
-                                excel_reader.read_template_file(template_file.read())
-                            )
-                            if not success:
-                                st.error(f"Template read error: {msg}")
-                                st.stop()
-
-                            # Read bulk data
-                            success_bulk, msg_bulk, bulk_data = (
-                                excel_reader.read_bulk_file(
-                                    bulk_file.read(), bulk_file.name
+                            # Determine which optimization to use
+                            if zero_sales:
+                                from business.bid_optimizations.zero_sales.orchestrator import (
+                                    ZeroSalesOptimization,
                                 )
+
+                                optimization = ZeroSalesOptimization()
+                                optimization_name = "Zero Sales"
+                                bulk_key = "bulk_60_uploaded"
+                            else:  # bids_30_days
+                                from business.bid_optimizations.bids_30_days.orchestrator import (
+                                    Bids30DaysOptimization,
+                                )
+
+                                optimization = Bids30DaysOptimization()
+                                optimization_name = "Bids 30 Days"
+                                bulk_key = "bulk_30_uploaded"
+
+                            # Read template
+                            import io
+
+                            template_df = pd.read_excel(
+                                io.BytesIO(template_file.read()), sheet_name=None
                             )
-                            if not success_bulk:
-                                st.error(f"Bulk read error: {msg_bulk}")
-                                st.stop()
+                            template_file.seek(0)
+
+                            # Read bulk based on type
+                            if bulk_type == "60" and bulk_60_file:
+                                if bulk_60_file.name.endswith(".csv"):
+                                    bulk_df = pd.read_csv(bulk_60_file)
+                                else:
+                                    bulk_df = pd.read_excel(
+                                        bulk_60_file,
+                                        sheet_name="Sponsored Products Campaigns",
+                                    )
+                            elif bulk_type == "30" and bulk_30_file:
+                                if bulk_30_file.name.endswith(".csv"):
+                                    bulk_df = pd.read_csv(bulk_30_file)
+                                else:
+                                    bulk_df = pd.read_excel(
+                                        bulk_30_file,
+                                        sheet_name="Sponsored Products Campaigns",
+                                    )
+
+                            # Process the optimization
+                            st.info(f"Processing {optimization_name} optimization...")
 
                             # Validate
-                            valid, msg, details = zero_sales.validate(
-                                template_data, bulk_data
+                            is_valid, validation_msg, validation_details = (
+                                optimization.validate(template_df, bulk_df)
                             )
-                            if not valid:
-                                st.error(f"Validation failed: {msg}")
-                                st.stop()
+
+                            if not is_valid:
+                                st.error(f"Validation failed: {validation_msg}")
+                                return
 
                             # Clean
-                            cleaned_data, cleaning_details = zero_sales.clean(
-                                template_data, bulk_data
+                            cleaned_data, cleaning_details = optimization.clean(
+                                template_df, bulk_df
                             )
 
                             # Process
-                            optimization_results = zero_sales.process(
-                                template_data, cleaned_data
+                            optimization_results = optimization.process(
+                                template_df, cleaned_data
                             )
 
                             # Format output
-                            formatted_results = formatter.format_for_output(
+                            formatter = OutputFormatter()
+                            working_file, clean_file = formatter.create_output_files(
                                 optimization_results
                             )
 
-                            # Prepare for Excel
-                            final_sheets = formatter.prepare_for_excel(
-                                formatted_results
+                            # Show results
+                            st.markdown(
+                                "<h3 style='text-align: center;'>4. Results</h3>",
+                                unsafe_allow_html=True,
                             )
 
-                            # Create Excel file
-                            working_file = excel_writer.write_excel(final_sheets)
-
-                            # Save to session state
-                            st.session_state.working_file = working_file
-                            st.session_state.processing_complete = True
-                            st.session_state.output_stats = (
-                                formatter.calculate_statistics(formatted_results)
+                            st.success(
+                                f"{optimization_name} optimization completed successfully!"
                             )
 
-                            st.rerun()
+                            # Get statistics
+                            stats = optimization.get_statistics()
+                            if stats:
+                                st.info(
+                                    f"Processed: {stats.get('rows_processed', 0)} rows | "
+                                    f"Modified: {stats.get('rows_modified', 0)} bids"
+                                )
+
+                                # Show additional stats for Bids 30 Days
+                                if (
+                                    bids_30_days
+                                    and stats.get("rows_to_harvesting", 0) > 0
+                                ):
+                                    st.info(
+                                        f"Moved to For Harvesting: {stats.get('rows_to_harvesting', 0)} rows"
+                                    )
+
+                            # Download buttons
+                            col1, col2 = st.columns(2)
+
+                            with col1:
+                                st.download_button(
+                                    label="Download Working File",
+                                    data=working_file,
+                                    file_name=f"working_file_{optimization_name.replace(' ', '_').lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True,
+                                )
+
+                            with col2:
+                                st.download_button(
+                                    label="Download Clean File",
+                                    data=clean_file,
+                                    file_name=f"clean_file_{optimization_name.replace(' ', '_').lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True,
+                                )
 
                     except Exception as e:
-                        st.error(f"Processing error: {str(e)}")
+                        st.error(f"Error processing files: {str(e)}")
                         import traceback
 
-                        with st.expander("Error details"):
-                            st.code(traceback.format_exc())
+                        st.code(traceback.format_exc())
 
-                st.markdown("---")
 
-            # Output Section - Only show if processing complete
-            if st.session_state.get("processing_complete"):
-                st.markdown(
-                    "<h3 style='text-align: center;'>4. Download Output</h3>",
-                    unsafe_allow_html=True,
-                )
-
-                st.success("Processing complete!")
-
-                # Show statistics if available
-                if stats := st.session_state.get("output_stats"):
-                    st.metric("Total Rows", f"{stats.get('total_rows', 0):,}")
-                    st.metric("Rows Modified", f"{stats.get('rows_modified', 0):,}")
-
-                # Download Working File
-                working_file = st.session_state.get("working_file")
-                if working_file:
-                    from datetime import datetime
-
-                    timestamp = datetime.now().strftime("%Y-%m-%d | %H-%M")
-                    st.download_button(
-                        "Download Working File",
-                        data=working_file,
-                        file_name=f"Auto Optimized Bulk | Working | {timestamp}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                    )
-                else:
-                    st.button(
-                        "Download Working File (Process first)",
-                        disabled=True,
-                        use_container_width=True,
-                        help="Process files first to generate output",
-                    )
-
-                # Clean File - still disabled
-                st.button(
-                    "Download Clean File (Coming Soon)",
-                    disabled=True,
-                    use_container_width=True,
-                    help="File generation will be available in a future update",
-                )
-
-                # Reset button
-                if st.button("Reset", use_container_width=True):
-                    for key in list(st.session_state.keys()):
-                        del st.session_state[key]
-                    st.rerun()
-
-        # COLUMNS 1, 3, 4 AND 6 STAY EMPTY - שינוי בהערה
+# Required for page registration
+def show():
+    """Show function required for page registration."""
+    page = BidOptimizerPage()
+    page.render()

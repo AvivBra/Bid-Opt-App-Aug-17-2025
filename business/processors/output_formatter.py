@@ -1,305 +1,401 @@
-"""Output formatter for bid optimization results."""
+"""Output formatter for optimization results with Bids 30 Days support."""
 
 import pandas as pd
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+from typing import Dict, List, Tuple, Optional, Any
+from io import BytesIO
 import logging
+from datetime import datetime
+from config.optimization_config import (
+    apply_text_format_before_write,
+    apply_uniform_column_widths,
+)
 
 
 class OutputFormatter:
-    """
-    Formats optimization results for Excel output.
-
-    Handles:
-    - Creating separate sheets for different entity types
-    - Adding helper columns in the correct position
-    - Marking rows with bid range issues
-    - Ensuring Operation column is set to "Update"
-    """
+    """Formats optimization results into Excel files."""
 
     def __init__(self):
+        """Initialize output formatter."""
         self.logger = logging.getLogger(__name__)
 
-        # Helper columns to add (in order)
-        self.helper_columns = [
-            "Old Bid",
-            "calc1",
-            "calc2",
-            "Target CPA",
-            "Base Bid",
-            "Adj. CPA",
-            "Max BA",
-        ]
+        # Import Bids 30 Days formatter if available
+        self.bids30_formatter = None
+        try:
+            from business.bid_optimizations.bids_30_days.output_formatter_30_days import (
+                Bids30DaysOutputFormatter,
+            )
 
-        # Valid bid range
-        self.min_bid = 0.02
-        self.max_bid = 4.00
+            self.bids30_formatter = Bids30DaysOutputFormatter()
+        except ImportError:
+            self.logger.warning("Bids 30 Days formatter not available")
 
-    def format_for_output(
-        self, optimization_results: Dict[str, pd.DataFrame]
-    ) -> Dict[str, pd.DataFrame]:
+    def create_output_files(
+        self,
+        optimization_results: Dict[str, pd.DataFrame],
+        optimization_name: str = None,
+    ) -> Tuple[BytesIO, BytesIO]:
         """
-        Format optimization results for Excel output.
+        Create working and clean output files.
 
         Args:
             optimization_results: Dictionary of DataFrames from optimization
+            optimization_name: Name of the optimization (for special handling)
 
         Returns:
-            Dictionary of formatted DataFrames ready for Excel writing
+            Tuple of (working_file, clean_file) as BytesIO objects
         """
 
-        formatted_sheets = {}
+        # Check if this is Bids 30 Days optimization
+        is_bids_30 = self._is_bids_30_days(optimization_results, optimization_name)
 
-        for sheet_name, df in optimization_results.items():
-            if df.empty:
-                continue
+        if is_bids_30 and self.bids30_formatter:
+            return self._create_bids_30_files(optimization_results)
+        else:
+            return self._create_standard_files(optimization_results)
 
-            # Process based on sheet type
-            if "targeting" in sheet_name.lower() or "keyword" in sheet_name.lower():
-                # Main sheet - gets helper columns
-                formatted_df = self._format_targeting_sheet(df)
-                formatted_sheets["Working Sheet"] = formatted_df
-
-            elif "bidding" in sheet_name.lower():
-                # Bidding Adjustment - no helper columns
-                formatted_df = self._format_bidding_sheet(df)
-                formatted_sheets["Bidding Adjustment Zero Sales"] = formatted_df
-
-            elif "product" in sheet_name.lower() and "ad" in sheet_name.lower():
-                # Product Ad - no helper columns
-                formatted_df = self._format_product_ad_sheet(df)
-                formatted_sheets["Product Ad Zero Sales"] = formatted_df
-
-            else:
-                # Default formatting
-                formatted_df = self._format_default_sheet(df)
-                formatted_sheets[sheet_name] = formatted_df
-
-        return formatted_sheets
-
-    def _format_targeting_sheet(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _is_bids_30_days(
+        self, results: Dict[str, pd.DataFrame], optimization_name: str = None
+    ) -> bool:
         """
-        Format the main targeting sheet with helper columns.
+        Check if this is Bids 30 Days optimization.
 
-        Adds 7 helper columns to the left of Bid column (column 28).
+        Args:
+            results: Optimization results
+            optimization_name: Optional optimization name
+
+        Returns:
+            True if Bids 30 Days optimization
         """
 
-        df = df.copy()
+        # Check by name
+        if optimization_name and "bids 30" in optimization_name.lower():
+            return True
 
-        # Ensure Operation is Update
-        if "Operation" in df.columns:
-            df["Operation"] = "Update"
+        # Check by presence of "For Harvesting" sheet
+        if "For Harvesting" in results:
+            return True
 
-        # Rearrange columns with helper columns in correct position
-        df = self._arrange_columns_with_helpers(df)
+        # Check by presence of specific helper columns
+        if results:
+            first_sheet = next(iter(results.values()))
+            bids30_columns = ["Temp Bid", "Max_Bid", "calc3"]
+            if all(col in first_sheet.columns for col in bids30_columns):
+                return True
 
-        # Mark rows with bid issues
-        df = self._mark_bid_issues(df)
+        return False
 
-        self.logger.info(f"Formatted targeting sheet: {len(df)} rows")
-
-        return df
-
-    def _format_bidding_sheet(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _create_bids_30_files(
+        self, optimization_results: Dict[str, pd.DataFrame]
+    ) -> Tuple[BytesIO, BytesIO]:
         """
-        Format the bidding adjustment sheet without helper columns.
-        """
+        Create output files specifically for Bids 30 Days.
 
-        df = df.copy()
+        Args:
+            optimization_results: Dictionary of DataFrames
 
-        # Ensure Operation is Update
-        if "Operation" in df.columns:
-            df["Operation"] = "Update"
-
-        # Remove helper columns if present
-        df = self._remove_helper_columns(df)
-
-        self.logger.info(f"Formatted bidding sheet: {len(df)} rows")
-
-        return df
-
-    def _format_product_ad_sheet(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Format the product ad sheet without helper columns.
+        Returns:
+            Tuple of (working_file, clean_file)
         """
 
-        df = df.copy()
+        self.logger.info("Creating Bids 30 Days output files")
 
-        # Ensure Operation is Update
-        if "Operation" in df.columns:
-            df["Operation"] = "Update"
+        # Get original column order (from first sheet)
+        original_columns = self._get_original_columns(optimization_results)
 
-        # Remove helper columns if present
-        df = self._remove_helper_columns(df)
-
-        self.logger.info(f"Formatted product ad sheet: {len(df)} rows")
-
-        return df
-
-    def _format_default_sheet(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Default formatting for any other sheets.
-        """
-
-        df = df.copy()
-
-        # Ensure Operation is Update
-        if "Operation" in df.columns:
-            df["Operation"] = "Update"
-
-        return df
-
-    def _arrange_columns_with_helpers(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Arrange columns with helper columns in the correct position.
-
-        Helper columns should be inserted to the left of the Bid column (column 28).
-        """
-
-        # Get all columns
-        all_cols = df.columns.tolist()
-
-        # Find Bid column position (should be column 28 in original)
-        bid_col = None
-        for col in all_cols:
-            if "bid" in col.lower() and "default" not in col.lower():
-                bid_col = col
-                break
-
-        if not bid_col:
-            self.logger.warning("Bid column not found, returning dataframe as-is")
-            return df
-
-        bid_index = all_cols.index(bid_col)
-
-        # Separate original columns from helper columns
-        original_cols = [col for col in all_cols if col not in self.helper_columns]
-        existing_helpers = [col for col in self.helper_columns if col in all_cols]
-
-        # Build new column order
-        # Columns before Bid + Helper columns + Bid + Columns after Bid
-        new_cols = (
-            original_cols[:bid_index]  # Columns before Bid
-            + existing_helpers  # Helper columns
-            + original_cols[bid_index:]  # Bid and columns after
+        # Format sheets using Bids 30 formatter
+        formatted_sheets = self.bids30_formatter.format_sheets(
+            optimization_results, original_columns
         )
 
-        # Reorder dataframe
-        return df[new_cols]
+        # Create working file (with all columns and highlighting)
+        working_file = self.bids30_formatter.create_excel_file(
+            formatted_sheets, highlight_rows=True, highlight_headers=True
+        )
 
-    def _remove_helper_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Create clean file (minimal columns, no highlighting)
+        clean_sheets = self._create_clean_sheets_bids30(formatted_sheets)
+        clean_file = self.bids30_formatter.create_excel_file(
+            clean_sheets, highlight_rows=False, highlight_headers=False
+        )
+
+        # Log statistics
+        stats = self.bids30_formatter.get_summary_stats(formatted_sheets)
+        self.logger.info(f"Bids 30 Days output created: {stats}")
+
+        return working_file, clean_file
+
+    def _create_clean_sheets_bids30(
+        self, sheets: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
         """
-        Remove helper columns from dataframe.
+        Create clean sheets for Bids 30 Days (minimal columns).
+
+        Args:
+            sheets: Formatted sheets dictionary
+
+        Returns:
+            Clean sheets dictionary
         """
 
-        cols_to_keep = [col for col in df.columns if col not in self.helper_columns]
-        return df[cols_to_keep]
+        clean_sheets = {}
 
-    def _mark_bid_issues(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Columns to keep in clean file
+        essential_columns = [
+            "Entity",
+            "Campaign ID",
+            "Ad Group ID",
+            "Portfolio Name (Informational only)",
+            "Campaign Name (Informational only)",
+            "Ad Group Name",
+            "Keyword ID",
+            "Keyword Text",
+            "Match Type",
+            "Product Targeting ID",
+            "Product Targeting Expression",
+            "Bid",
+            "Operation",
+        ]
+
+        for sheet_name, df in sheets.items():
+            if sheet_name == "For Harvesting":
+                # For Harvesting keeps more columns for analysis
+                analysis_columns = essential_columns + [
+                    "Units",
+                    "Clicks",
+                    "Impressions",
+                    "Spend",
+                    "Sales",
+                    "Orders",
+                    "Conversion Rate",
+                    "ACOS",
+                    "CPC",
+                ]
+                columns_to_keep = [col for col in analysis_columns if col in df.columns]
+            else:
+                columns_to_keep = [
+                    col for col in essential_columns if col in df.columns
+                ]
+
+            clean_sheets[sheet_name] = df[columns_to_keep].copy()
+
+        return clean_sheets
+
+    def _create_standard_files(
+        self, optimization_results: Dict[str, pd.DataFrame]
+    ) -> Tuple[BytesIO, BytesIO]:
         """
-        Mark rows with bid values outside the valid range.
+        Create standard output files (Zero Sales or other optimizations).
 
-        Adds 'has_error' column for Excel writer to identify rows to highlight.
+        Args:
+            optimization_results: Dictionary of DataFrames
+
+        Returns:
+            Tuple of (working_file, clean_file)
         """
 
-        df["has_error"] = False
+        self.logger.info("Creating standard output files")
 
-        # Find bid column
-        bid_col = None
-        for col in df.columns:
-            if (
-                "bid" in col.lower()
-                and "default" not in col.lower()
-                and "old" not in col.lower()
-            ):
-                bid_col = col
-                break
+        # Create working file with all data
+        working_file = self._create_excel_file(
+            optimization_results, include_all_columns=True
+        )
 
-        if bid_col:
-            # Mark rows with bid issues
-            df.loc[df[bid_col] < self.min_bid, "has_error"] = True
-            df.loc[df[bid_col] > self.max_bid, "has_error"] = True
-            df.loc[df[bid_col].isna(), "has_error"] = True
+        # Create clean file with essential columns only
+        clean_data = self._filter_essential_columns(optimization_results)
+        clean_file = self._create_excel_file(clean_data, include_all_columns=False)
 
-            error_count = df["has_error"].sum()
-            if error_count > 0:
-                self.logger.warning(f"Found {error_count} rows with bid range issues")
+        return working_file, clean_file
 
-        return df
-
-    def calculate_statistics(
-        self, formatted_sheets: Dict[str, pd.DataFrame]
-    ) -> Dict[str, Any]:
+    def _get_original_columns(self, results: Dict[str, pd.DataFrame]) -> List[str]:
         """
-        Calculate statistics for the formatted output.
+        Get original column order from results.
+
+        Args:
+            results: Optimization results
+
+        Returns:
+            List of original column names
+        """
+
+        # Standard Amazon bulk file columns (48 total)
+        standard_columns = [
+            "Entity",
+            "Operation",
+            "Campaign ID",
+            "Ad Group ID",
+            "Portfolio Name (Informational only)",
+            "Campaign Name (Informational only)",
+            "Ad Group Name",
+            "Keyword ID",
+            "Keyword Text",
+            "Match Type",
+            "Campaign State (Informational only)",
+            "Ad Group State (Informational only)",
+            "State",
+            "Daily Budget",
+            "Placement",
+            "Percentage",
+            "Product Targeting ID",
+            "Product Targeting Expression",
+            "Impressions",
+            "Clicks",
+            "Click-through Rate",
+            "Spend",
+            "Sales",
+            "ACOS",
+            "ROAS",
+            "Orders",
+            "Units",
+            "Conversion Rate",
+            "CPC",
+            "Bid",
+        ]
+
+        # Try to get actual columns from first sheet
+        if results:
+            first_sheet = next(iter(results.values()))
+            # Filter out helper columns to get original columns
+            helper_cols = [
+                "Old Bid",
+                "calc1",
+                "calc2",
+                "calc3",
+                "Target CPA",
+                "Base Bid",
+                "Adj. CPA",
+                "Max BA",
+                "Temp Bid",
+                "Max_Bid",
+                "_needs_highlight",
+            ]
+            original = [col for col in first_sheet.columns if col not in helper_cols]
+            if len(original) >= 40:  # Reasonable number of original columns
+                return original
+
+        return standard_columns
+
+    def _create_excel_file(
+        self, data: Dict[str, pd.DataFrame], include_all_columns: bool = True
+    ) -> BytesIO:
+        """
+        Create Excel file from DataFrames.
+
+        Args:
+            data: Dictionary of sheet name to DataFrame
+            include_all_columns: Whether to include all columns
+
+        Returns:
+            BytesIO object containing Excel file
+        """
+
+        output = BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            for sheet_name, df in data.items():
+                # Ensure sheet name is within Excel limits
+                safe_sheet_name = sheet_name[:31]
+
+                # Apply text format to prevent scientific notation
+                df_formatted = apply_text_format_before_write(df)
+
+                # Write DataFrame to Excel
+                df_formatted.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+
+                # Apply basic formatting
+                worksheet = writer.sheets[safe_sheet_name]
+                self._apply_basic_formatting(worksheet, df)
+
+                # Apply uniform column widths
+                apply_uniform_column_widths(worksheet, len(df.columns))
+
+        output.seek(0)
+        return output
+
+    def _apply_basic_formatting(self, worksheet, df: pd.DataFrame):
+        """
+        Apply basic formatting to worksheet.
+
+        Args:
+            worksheet: Openpyxl worksheet
+            df: DataFrame with data
+        """
+
+        from openpyxl.styles import PatternFill, Font, Alignment
+        from openpyxl.utils import get_column_letter
+
+        # Header formatting
+        gray_fill = PatternFill(
+            start_color="E0E0E0", end_color="E0E0E0", fill_type="solid"
+        )
+
+        for col_idx in range(1, len(df.columns) + 1):
+            cell = worksheet.cell(row=1, column=col_idx)
+            cell.fill = gray_fill
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+
+        # DO NOT auto-adjust column widths - uniform width already applied
+
+        # Freeze header row
+        worksheet.freeze_panes = "A2"
+
+    def _filter_essential_columns(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Filter to keep only essential columns.
+
+        Args:
+            data: Dictionary of DataFrames
+
+        Returns:
+            Filtered dictionary
+        """
+
+        essential_columns = [
+            "Entity",
+            "Operation",
+            "Campaign ID",
+            "Ad Group ID",
+            "Portfolio Name (Informational only)",
+            "Campaign Name (Informational only)",
+            "Ad Group Name",
+            "Keyword ID",
+            "Keyword Text",
+            "Match Type",
+            "Product Targeting ID",
+            "Product Targeting Expression",
+            "Bid",
+            "State",
+        ]
+
+        filtered_data = {}
+
+        for sheet_name, df in data.items():
+            # Keep only columns that exist
+            columns_to_keep = [col for col in essential_columns if col in df.columns]
+            filtered_data[sheet_name] = df[columns_to_keep].copy()
+
+        return filtered_data
+
+    def get_statistics(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """
+        Get statistics about the output.
+
+        Args:
+            data: Dictionary of DataFrames
+
+        Returns:
+            Statistics dictionary
         """
 
         stats = {
-            "total_rows": 0,
-            "rows_modified": 0,
-            "rows_with_errors": 0,
-            "sheets_created": len(formatted_sheets),
-            "bid_range_issues": 0,
-            "processing_timestamp": datetime.now().isoformat(),
+            "total_sheets": len(data),
+            "total_rows": sum(len(df) for df in data.values()),
+            "sheets": {},
         }
 
-        for sheet_name, df in formatted_sheets.items():
-            stats["total_rows"] += len(df)
-
-            # Count modified rows (where Old Bid != Bid)
-            if "Old Bid" in df.columns:
-                bid_col = None
-                for col in df.columns:
-                    if (
-                        "bid" in col.lower()
-                        and "old" not in col.lower()
-                        and "default" not in col.lower()
-                    ):
-                        bid_col = col
-                        break
-
-                if bid_col:
-                    modified = df[df["Old Bid"] != df[bid_col]]
-                    stats["rows_modified"] += len(modified)
-
-            # Count error rows
-            if "has_error" in df.columns:
-                stats["rows_with_errors"] += df["has_error"].sum()
-                stats["bid_range_issues"] += df["has_error"].sum()
+        for sheet_name, df in data.items():
+            stats["sheets"][sheet_name] = {"rows": len(df), "columns": len(df.columns)}
 
         return stats
-
-    def prepare_for_excel(
-        self, sheets_dict: Dict[str, pd.DataFrame]
-    ) -> Dict[str, pd.DataFrame]:
-        """
-        Final preparation for Excel writing.
-
-        Ensures all sheets are ready for Excel output.
-        """
-
-        prepared_sheets = {}
-
-        for sheet_name, sheet_data in sheets_dict.items():
-            # FIX: Check if sheet_data is actually a DataFrame
-            if not isinstance(sheet_data, pd.DataFrame):
-                self.logger.warning(
-                    f"Skipping {sheet_name}: not a DataFrame (type: {type(sheet_data)})"
-                )
-                continue
-
-            # Make a copy of the DataFrame
-            df = sheet_data.copy()
-
-            # Remove the has_error column (used only for highlighting)
-            if "has_error" in df.columns:
-                # Store error indices before removing
-                error_indices = df[df["has_error"] == True].index.tolist()
-                df = df.drop("has_error", axis=1)
-
-                # Store error indices in dataframe attributes for Excel writer
-                df.attrs["error_rows"] = error_indices
-
-            prepared_sheets[sheet_name] = df
-
-        return prepared_sheets
