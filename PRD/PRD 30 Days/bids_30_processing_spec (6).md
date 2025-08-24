@@ -97,3 +97,39 @@ ELSE
     THEN:
         Bid = Temp_Bid
 ```
+
+### שלב 8: צביעת שורות בוורוד (רק בגיליון Targeting)
+```
+IF (Conversion Rate < 0.08
+    OR
+    Error in any calculation
+    OR
+    Bid < 0.02
+    OR
+    Bid > 1.25)
+    THEN:
+        Mark row for pink highlighting
+        Continue processing remaining rows
+        Include in output file
+        
+Note: No pink highlighting in "Bidding Adjustment" sheet
+```
+
+### שלב 9: חיווים על המסך (במקביל להצגת כפתור הורדה)
+```
+IF (COUNT(Conversion Rate < 0.08) > 0)
+    THEN:
+        Display: "[count] rows with CVR < 8%"
+        
+IF (COUNT(Error rows) > 0)
+    THEN:
+        Display: "[count] errored rows"
+        
+IF (COUNT(Bid < 0.02) > 0)
+    THEN:
+        Display: "[count] rows with Bid < 0.02"
+        
+IF (COUNT(Bid > 1.25) > 0)
+    THEN:
+        Display: "[count] rows with Bid > 1.25"
+```
