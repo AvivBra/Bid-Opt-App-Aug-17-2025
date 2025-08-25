@@ -11,7 +11,7 @@ def create_primary_button(
 
     return st.button(
         label,
-        type="secondary",
+        type="primary",
         disabled=disabled,
         use_container_width=True,
         help=help_text,

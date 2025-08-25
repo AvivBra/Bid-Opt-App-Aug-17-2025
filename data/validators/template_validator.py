@@ -1,24 +1,25 @@
-"""Template file validation with TemplateValidator class."""
+"""Template file validation utilities."""
 
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
 
 
 class TemplateValidator:
-    """Validator for template Excel files."""
+    """Validates template Excel files for bid optimization."""
 
     def __init__(self):
         """Initialize the validator."""
         self.required_sheets = ["Port Values"]  # Only Port Values is required
-        self.optional_sheets = ["Top ASINs"]  # Top ASINs is optional
+        self.optional_sheets = ["Top ASINs", "Delete for 60"]  # Top ASINs and Delete for 60 are optional
         self.required_port_columns = ["Portfolio Name", "Base Bid", "Target CPA"]
+        self.required_delete_for_60_columns = ["Keyword ID", "Product Targeting ID"]
         self.errors = []
 
     def validate(
         self, excel_file
     ) -> Tuple[bool, str, Optional[Dict[str, pd.DataFrame]]]:
         """
-        Validate template file structure with two sheets.
+        Validate template file structure with sheets.
 
         Args:
             excel_file: Excel file object or path
@@ -43,7 +44,7 @@ class TemplateValidator:
                     None,
                 )
 
-            # Read both sheets (Top ASINs is optional)
+            # Read sheets (Top ASINs and Delete for 60 are optional)
             dataframes = {}
 
             # Validate Port Values sheet (required)
@@ -63,6 +64,17 @@ class TemplateValidator:
             else:
                 # Create empty DataFrame for Top ASINs if not present
                 dataframes["Top ASINs"] = pd.DataFrame(columns=["ASIN"])
+
+            # Check and validate Delete for 60 sheet if exists (optional)
+            if "Delete for 60" in sheet_names:
+                delete_for_60_df = pd.read_excel(excel_file, sheet_name="Delete for 60")
+                valid, error = self._validate_delete_for_60_columns(delete_for_60_df)
+                if not valid:
+                    return False, f"Delete for 60 sheet error: {error}", None
+                dataframes["Delete for 60"] = delete_for_60_df
+            else:
+                # Create empty DataFrame for Delete for 60 if not present
+                dataframes["Delete for 60"] = pd.DataFrame(columns=["Keyword ID", "Product Targeting ID"])
 
             # Check for duplicate portfolios in Port Values
             duplicates = self._check_duplicate_portfolios(port_values_df)
@@ -89,12 +101,6 @@ class TemplateValidator:
         """Alias for validate method for backward compatibility."""
         return self.validate(excel_file)
 
-    def validate_complete(
-        self, excel_file
-    ) -> Tuple[bool, str, Optional[Dict[str, pd.DataFrame]]]:
-        """Complete validation of template file (alias for validate)."""
-        return self.validate(excel_file)
-
     def _validate_port_values_columns(self, df: pd.DataFrame) -> Tuple[bool, str]:
         """
         Validate Port Values sheet has required columns.
@@ -108,12 +114,12 @@ class TemplateValidator:
         if df.empty:
             return False, "Port Values sheet is empty"
 
-        missing_columns = [
-            col for col in self.required_port_columns if col not in df.columns
-        ]
+        expected_cols = set(self.required_port_columns)
+        actual_cols = set(df.columns)
 
-        if missing_columns:
-            return False, f"Missing columns: {', '.join(missing_columns)}"
+        if not expected_cols.issubset(actual_cols):
+            missing = expected_cols - actual_cols
+            return False, f"Missing columns: {', '.join(missing)}"
 
         return True, ""
 
@@ -127,14 +133,36 @@ class TemplateValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Top ASINs can be empty (optional for Zero Sales)
+        # Top ASINs is optional and can be empty for Phase 1
         if df.empty:
             return True, ""
 
-        # If not empty, should have ASIN column
+        # If not empty, check for ASIN column
         if "ASIN" not in df.columns:
-            return False, "Missing 'ASIN' column"
+            return False, "Missing ASIN column"
 
+        return True, ""
+
+    def _validate_delete_for_60_columns(self, df: pd.DataFrame) -> Tuple[bool, str]:
+        """
+        Validate Delete for 60 sheet has required columns.
+        
+        Args:
+            df: Delete for 60 DataFrame
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if df.empty:
+            return True, ""  # Empty sheet is valid for optional sheet
+            
+        expected_cols = set(self.required_delete_for_60_columns)
+        actual_cols = set(df.columns)
+        
+        if not expected_cols.issubset(actual_cols):
+            missing = expected_cols - actual_cols
+            return False, f"Missing columns: {', '.join(missing)}"
+            
         return True, ""
 
     def _check_duplicate_portfolios(self, df: pd.DataFrame) -> List[str]:
@@ -150,8 +178,8 @@ class TemplateValidator:
         if "Portfolio Name" not in df.columns:
             return []
 
-        portfolio_counts = df["Portfolio Name"].value_counts()
-        duplicates = portfolio_counts[portfolio_counts > 1].index.tolist()
+        portfolio_names = df["Portfolio Name"].dropna()
+        duplicates = portfolio_names[portfolio_names.duplicated()].unique().tolist()
 
         return duplicates
 
@@ -166,31 +194,29 @@ class TemplateValidator:
             Tuple of (is_valid, error_message)
         """
         if "Base Bid" not in df.columns:
-            return False, "Base Bid column missing"
-
-        invalid_rows = []
+            return True, ""  # Column is required but checked elsewhere
 
         for idx, value in df["Base Bid"].items():
             if pd.isna(value):
-                invalid_rows.append(idx + 1)  # Row number (1-based)
+                return False, f"Row {idx + 2}: Base Bid cannot be empty"
+
+            # Check if it's 'Ignore' (case insensitive)
+            if str(value).lower() == "ignore":
                 continue
 
-            # Convert to string for 'Ignore' check
-            str_value = str(value).strip().lower()
-
-            if str_value == "ignore":
-                continue
-
-            # Try to convert to float for range check
+            # Try to convert to float and check range
             try:
-                num_value = float(value)
-                if num_value < 0 or num_value > 4:
-                    invalid_rows.append(idx + 1)
+                bid_value = float(value)
+                if bid_value < 0.02 or bid_value > 4.00:
+                    return (
+                        False,
+                        f"Row {idx + 2}: Base Bid must be between 0.02 and 4.00",
+                    )
             except (ValueError, TypeError):
-                invalid_rows.append(idx + 1)
-
-        if invalid_rows:
-            return False, f"Invalid Base Bid values in rows: {invalid_rows[:5]}"
+                return (
+                    False,
+                    f"Row {idx + 2}: Base Bid must be a number or 'Ignore'",
+                )
 
         return True, ""
 
@@ -205,25 +231,28 @@ class TemplateValidator:
             Tuple of (is_valid, error_message)
         """
         if "Target CPA" not in df.columns:
-            return False, "Target CPA column missing"
-
-        invalid_rows = []
+            return True, ""  # Column is required but checked elsewhere
 
         for idx, value in df["Target CPA"].items():
-            # Empty/NaN is allowed
-            if pd.isna(value) or value == "":
+            # Target CPA can be empty
+            if pd.isna(value) or str(value).strip() == "":
                 continue
 
-            # Must be numeric and positive
+            # Try to convert to float and check range
             try:
-                num_value = float(value)
-                if num_value < 0:
-                    invalid_rows.append(idx + 1)
+                cpa_value = float(value)
+                if cpa_value < 0.01:
+                    return (
+                        False,
+                        f"Row {idx + 2}: Target CPA must be at least 0.01",
+                    )
+                if cpa_value > 9999.99:
+                    return (
+                        False,
+                        f"Row {idx + 2}: Target CPA must be less than 10000",
+                    )
             except (ValueError, TypeError):
-                invalid_rows.append(idx + 1)
-
-        if invalid_rows:
-            return False, f"Invalid Target CPA values in rows: {invalid_rows[:5]}"
+                return False, f"Row {idx + 2}: Target CPA must be a number or empty"
 
         return True, ""
 

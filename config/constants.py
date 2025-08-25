@@ -18,9 +18,10 @@ REQUIRED_COLUMNS = 48  # Number of required columns in bulk files
 BULK_REQUIRED_COLUMNS = 48
 
 # Template structure
-TEMPLATE_REQUIRED_SHEETS = ["Port Values", "Top ASINs"]
+TEMPLATE_REQUIRED_SHEETS = ["Port Values", "Top ASINs", "Delete for 60"]
 TEMPLATE_PORT_VALUES_COLUMNS = ["Portfolio Name", "Base Bid", "Target CPA"]
 TEMPLATE_TOP_ASINS_COLUMNS = ["ASIN"]
+TEMPLATE_DELETE_FOR_60_COLUMNS = ["Keyword ID", "Product Targeting ID"]
 
 # Bulk file structure
 BULK_SHEET_NAME = "Sponsored Products Campaigns"

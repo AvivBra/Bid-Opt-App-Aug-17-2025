@@ -3,33 +3,37 @@
 # Application titles and headers
 APP_TITLE = "BID OPTIMIZER"
 WELCOME_MESSAGE = "Welcome to Bid Optimizer"
-WELCOME_SUBTITLE = "Upload your Template and Bulk files to get started with optimization."
+WELCOME_SUBTITLE = (
+    "Upload your Template and Bulk files to get started with optimization."
+)
 
 # Section headers
 UPLOAD_SECTION_TITLE = "Upload Files"
-VALIDATION_SECTION_TITLE = "Data Validation" 
+VALIDATION_SECTION_TITLE = "Data Validation"
 OUTPUT_SECTION_TITLE = "Output Files"
 
 # Button labels
-DOWNLOAD_TEMPLATE_BUTTON = "📥 Download Template"
-UPLOAD_TEMPLATE_BUTTON = "📤 Upload Template"
-UPLOAD_BULK_60_BUTTON = "📤 Upload Bulk 60"
-UPLOAD_BULK_7_BUTTON = "📤 Upload Bulk 7"
-UPLOAD_BULK_30_BUTTON = "📤 Upload Bulk 30"
-PROCESS_FILES_BUTTON = "⚡ Process Files"
-DOWNLOAD_WORKING_BUTTON = "📥 Download Working File"
-DOWNLOAD_CLEAN_BUTTON = "📥 Download Clean File"
-RESET_BUTTON = "🔄 Reset Session"
+DOWNLOAD_TEMPLATE_BUTTON = "Download Template"
+UPLOAD_TEMPLATE_BUTTON = "Upload Template"
+UPLOAD_BULK_60_BUTTON = "Upload Bulk 60"
+UPLOAD_BULK_7_BUTTON = "Upload Bulk 7"
+UPLOAD_BULK_30_BUTTON = "Upload Bulk 30"
+PROCESS_FILES_BUTTON = "Process Files"
+DOWNLOAD_WORKING_BUTTON = "Download Working File"
+DOWNLOAD_CLEAN_BUTTON = "Download Clean File"
+RESET_BUTTON = "Reset Session"
 
 # File upload help text
-TEMPLATE_UPLOAD_HELP = "Excel file with Port Values and Top ASINs sheets"
+TEMPLATE_UPLOAD_HELP = (
+    "Excel file with Port Values, Top ASINs, and Delete for 60 sheets"
+)
 BULK_UPLOAD_HELP = "Excel or CSV file with Sponsored Products Campaigns data"
 
 # Status messages
-TEMPLATE_SUCCESS = "✓ Template loaded successfully"
-BULK_SUCCESS = "✓ Bulk file loaded successfully"
-VALIDATION_SUCCESS = "✓ All validations passed"
-PROCESSING_SUCCESS = "✓ Files processed successfully"
+TEMPLATE_SUCCESS = "Template loaded successfully"
+BULK_SUCCESS = "Bulk file loaded successfully"
+VALIDATION_SUCCESS = "All validations passed"
+PROCESSING_SUCCESS = "Files processed successfully"
 
 # Error messages
 FILE_TOO_LARGE = "File size exceeds maximum limit"
@@ -56,6 +60,7 @@ OPTIMIZATION_PORTFOLIO_BID = "Portfolio Bid Optimization"
 OPTIMIZATION_BUDGET = "Budget Optimization"
 OPTIMIZATION_KEYWORD = "Keyword Optimization"
 OPTIMIZATION_ASIN = "ASIN Targeting"
+OPTIMIZATION_60_DAYS = "60 Days Optimization"
 
 # Validation messages
 VALIDATION_PORTFOLIO_MATCH = "Portfolio matching validation"
@@ -73,27 +78,35 @@ PROGRESS_FINALIZING = "Finalizing results..."
 # Help text
 HELP_TEMPLATE_STRUCTURE = """
 Template file should contain:
-• Port Values sheet with Portfolio Name, Base Bid, Target CPA columns
-• Top ASINs sheet (can be empty for Phase 1)
-• Portfolio names must match those in Bulk file
-• Base Bid: 0.02-4.00 or 'Ignore'
-• Target CPA: 0.01-4.00 or empty
+- Port Values sheet with Portfolio Name, Base Bid, Target CPA columns
+- Top ASINs sheet (can be empty for Phase 1)
+- Delete for 60 sheet with Keyword ID and Product Targeting ID columns (optional)
+- Portfolio names must match those in Bulk file
+- Base Bid: 0.02-4.00 or 'Ignore'
+- Target CPA: 0.01-4.00 or empty
 """
 
 HELP_BULK_STRUCTURE = """
 Bulk file requirements:
-• Excel file with 'Sponsored Products Campaigns' sheet
-• CSV files also supported
-• Exactly 48 columns required
-• Maximum 500,000 rows
-• Must contain Units and Portfolio columns for Zero Sales optimization
+- Excel file with 'Sponsored Products Campaigns' sheet
+- CSV files also supported
+- Exactly 48 columns required
+- Maximum 500,000 rows
+- Must contain Units and Portfolio columns for Zero Sales optimization
 """
 
 HELP_ZERO_SALES = """
 Zero Sales Optimization:
-• Identifies products with 0 units sold
-• Calculates new bid based on 4 scenarios
-• Filters out 10 predefined 'Flat' portfolios
-• Skips portfolios marked as 'Ignore'
-• Adds helper columns to output file
+- Identifies products with 0 units sold
+- Calculates new bid based on 4 scenarios
+- Filters out 10 predefined 'Flat' portfolios
+- Skips portfolios marked as 'Ignore'
+- Adds helper columns to output file
+"""
+
+HELP_60_DAYS = """
+60 Days Optimization:
+- Uses Keyword IDs and Product Targeting IDs from Delete for 60 sheet
+- Applies optimization for 60-day period
+- Processes items marked for deletion or modification
 """
