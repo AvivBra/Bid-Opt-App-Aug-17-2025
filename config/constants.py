@@ -81,53 +81,85 @@ HELPER_COLUMNS = [
     "calc2",
     "Target CPA",
     "Base Bid",
-    "Adj. CPA",
+    "Adj. %",
+    "Case",
+    "CPC",
     "Max BA",
 ]
 
-# File naming
-OUTPUT_FILE_PREFIX = "Auto Optimized Bulk"
-WORKING_FILE_SUFFIX = "Working"
-CLEAN_FILE_SUFFIX = "Clean"
+# Output file settings
+OUTPUT_FILE_PREFIX = "Bid_Optimizer_Output"
+TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
 
-# Colors for UI
-COLORS = {
-    "primary": "#CCCCCC",
-    "secondary": "#EEEEEE",
-    "background": "#0F0F0F",
-    "sidebar": "#1A1A1A",
-    "card": "#1A1A1A",
-    "surface": "#1A1A1A",
-    "accent": "#DDDDDD",
-    "alert_bg": "#404040",
-    "text": "#FFFFFF",
-    "error": "#EF4444",
-    "success": "#10B981",
-    "warning": "#F59E0B",
-    "info": "#3B82F6",
-}
-
-# UI Constants
-SIDEBAR_WIDTH = 200
-MAX_CONTENT_WIDTH = 800
+# UI Display
 BUTTON_WIDTH = 200
-BUTTON_HEIGHT = 40
+BUTTON_HEIGHT = 50
+MAX_DISPLAY_ROWS = 100
 
 # Processing
 CHUNK_SIZE = 10000
-PROCESSING_TIMEOUT_SECONDS = 300  # 5 minutes
-SMALL_FILE_TIMEOUT = 120
-MEDIUM_FILE_TIMEOUT = 120
-LARGE_FILE_TIMEOUT = 300
-OUTPUT_FILE_PREFIX = "Auto Optimized Bulk"
-TIMESTAMP_FORMAT = "%Y-%m-%d | %H-%M"
+BATCH_SIZE = 1000
 
-# Validation messages
-VALIDATION_MESSAGES = {
-    "MISSING_PORTFOLIOS": "Missing portfolios found - Reupload Full Template",
-    "ALL_VALID": "All portfolios valid",
-    "IGNORED_PORTFOLIOS": "portfolios marked as 'Ignore' will be skipped",
-    "FILE_TOO_LARGE": "File exceeds size limit",
-    "INVALID_COLUMNS": "Invalid column structure",
-    "NO_DATA": "No data to process",
-}
+# Validation thresholds
+MAX_BID_CHANGE_PERCENTAGE = 500  # Maximum allowed bid change in percentage
+MIN_CLICKS_FOR_OPTIMIZATION = 10  # Minimum clicks required for optimization
+
+# File type constants
+ALLOWED_EXTENSIONS = ["xlsx", "xls", "csv"]
+EXCEL_EXTENSIONS = ["xlsx", "xls"]
+CSV_EXTENSIONS = ["csv"]
+
+# Processing status
+PROCESSING_STATES = ["pending", "processing", "complete", "error"]
+
+# Error messages
+ERROR_FILE_TOO_LARGE = f"File size exceeds {MAX_FILE_SIZE_MB}MB limit"
+ERROR_INVALID_FORMAT = "Invalid file format. Please upload Excel or CSV file"
+ERROR_MISSING_COLUMNS = "Required columns missing from file"
+ERROR_NO_DATA = "No data found in file"
+
+# Success messages
+SUCCESS_TEMPLATE_GENERATED = "Template generated successfully"
+SUCCESS_FILE_UPLOADED = "File uploaded successfully"
+SUCCESS_PROCESSING_COMPLETE = "Processing completed successfully"
+
+# Warning messages
+WARNING_LARGE_FILE = "Large file detected. Processing may take several minutes"
+WARNING_MANY_ERRORS = "Multiple validation errors detected"
+
+# ============== CAMPAIGN CREATOR CONSTANTS ==============
+
+# Campaign Template Configuration
+CAMPAIGN_TEMPLATE_SHEET = "Campaign Configuration"
+CAMPAIGN_TEMPLATE_COLUMNS = [
+    "My ASIN",
+    "Product Type",
+    "Niche",
+    "Bid",
+    "Hero Keyword 1",
+    "Hero Keyword 2",
+    "Hero Keyword 3",
+    "Hero Keyword 4",
+    "Hero Keyword 5",
+    "Hero Keyword 6",
+    "Testing Bid",
+    "Testing PT Bid",
+    "Phrase Bid",
+    "Broad Bid",
+    "Expanded Bid",
+    "Halloween Testing Bid",
+    "Halloween Testing Bid",
+    "Halloween Testing PT Bid",
+    "Halloween Phrase Bid",
+    "Halloween Broad Bid",
+    "Halloween Expanded Bid",
+]
+
+# Campaign Creator file size limits
+MAX_CAMPAIGN_TEMPLATE_SIZE_MB = 5
+MAX_DATA_ROVA_SIZE_MB = 40
+MAX_DATA_DIVE_SIZE_MB = 40
+
+# Output file naming
+CAMPAIGN_OUTPUT_PREFIX = "Campaign_Bulk"
+CAMPAIGN_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"

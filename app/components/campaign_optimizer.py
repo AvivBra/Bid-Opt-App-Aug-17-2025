@@ -2,7 +2,7 @@
 
 import streamlit as st
 import time
-from data.template_generator import TemplateGenerator
+from data.campaign_template_generator import CampaignTemplateGenerator
 
 
 class CampaignOptimizerPage:
@@ -36,55 +36,55 @@ class CampaignOptimizerPage:
 
             # Use checkboxes for multiple selection
             st.write("Select optimization(s):")
-            
+
             testing = st.checkbox(
                 "Testing",
                 value=False,
                 key="testing_checkbox",
             )
-            
+
             testing_pt = st.checkbox(
                 "Testing PT",
                 value=False,
                 key="testing_pt_checkbox",
             )
-            
+
             phrase = st.checkbox(
                 "Phrase",
                 value=False,
                 key="phrase_checkbox",
             )
-            
+
             broad = st.checkbox(
                 "Broad",
                 value=False,
                 key="broad_checkbox",
             )
-            
+
             expanded = st.checkbox(
                 "Expanded",
                 value=False,
                 key="expanded_checkbox",
             )
-            
+
             halloween_testing = st.checkbox(
                 "Halloween Testing",
                 value=False,
                 key="halloween_testing_checkbox",
             )
-            
+
             halloween_phrase = st.checkbox(
                 "Halloween Phrase",
                 value=False,
                 key="halloween_phrase_checkbox",
             )
-            
+
             halloween_broad = st.checkbox(
                 "Halloween Broad",
                 value=False,
                 key="halloween_broad_checkbox",
             )
-            
+
             halloween_expanded = st.checkbox(
                 "Halloween Expanded",
                 value=False,
@@ -104,8 +104,8 @@ class CampaignOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Download Template button
-            template_gen = TemplateGenerator()
+            # Download Template button - Using the campaign template generator
+            template_gen = CampaignTemplateGenerator()
             template_data = template_gen.generate_template()
 
             st.download_button(
@@ -132,7 +132,7 @@ class CampaignOptimizerPage:
                 st.session_state.data_rova_uploaded = True
                 st.success("Data Rova uploaded!")
 
-            # Data Dive upload  
+            # Data Dive upload
             data_dive_file = st.file_uploader(
                 "Data Dive", type=["xlsx", "csv"], key="data_dive_uploader"
             )
@@ -166,12 +166,12 @@ class CampaignOptimizerPage:
 
             # Process button - enabled only when template is uploaded
             process_enabled = st.session_state.get("campaign_template_uploaded", False)
-            
+
             if st.button(
                 "Process Files",
                 use_container_width=True,
                 disabled=not process_enabled,
-                key="campaign_process_button"
+                key="campaign_process_button",
             ):
                 # Mock processing with progress bar
                 with st.spinner("Processing..."):
@@ -179,7 +179,7 @@ class CampaignOptimizerPage:
                     for i in range(100):
                         time.sleep(0.02)  # 2 seconds total
                         progress_bar.progress(i + 1)
-                    
+
                     st.session_state.campaign_processing_complete = True
                     st.success("Processing complete!")
 
@@ -191,7 +191,7 @@ class CampaignOptimizerPage:
                     """,
                     unsafe_allow_html=True,
                 )
-                
+
                 st.markdown(
                     "<h3 style='text-align: left;'>5. Output Files</h3>",
                     unsafe_allow_html=True,
@@ -201,5 +201,5 @@ class CampaignOptimizerPage:
                 st.button(
                     "Download Campaign Bulk File",
                     use_container_width=True,
-                    key="campaign_download_button"
+                    key="campaign_download_button",
                 )
