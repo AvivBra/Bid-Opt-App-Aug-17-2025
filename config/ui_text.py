@@ -7,6 +7,13 @@ WELCOME_SUBTITLE = (
     "Upload your Template and Bulk files to get started with optimization."
 )
 
+# Campaign Optimizer titles
+CAMPAIGN_APP_TITLE = "CAMPAIGN OPTIMIZER"
+CAMPAIGN_WELCOME_MESSAGE = "Welcome to Campaign Optimizer"
+CAMPAIGN_WELCOME_SUBTITLE = (
+    "Upload your Template file to create new campaigns bulk file."
+)
+
 # Section headers
 UPLOAD_SECTION_TITLE = "Upload Files"
 VALIDATION_SECTION_TITLE = "Data Validation"
@@ -23,17 +30,28 @@ DOWNLOAD_WORKING_BUTTON = "Download Working File"
 DOWNLOAD_CLEAN_BUTTON = "Download Clean File"
 RESET_BUTTON = "Reset Session"
 
+# Campaign specific buttons
+UPLOAD_DATA_ROVA_BUTTON = "Data Rova"
+UPLOAD_DATA_DIVE_BUTTON = "Data Dive"
+DOWNLOAD_CAMPAIGN_BULK_BUTTON = "Download Campaign Bulk File"
+
 # File upload help text
 TEMPLATE_UPLOAD_HELP = (
     "Excel file with Port Values, Top ASINs, and Delete for 60 sheets"
 )
 BULK_UPLOAD_HELP = "Excel or CSV file with Sponsored Products Campaigns data"
+CAMPAIGN_TEMPLATE_UPLOAD_HELP = "Excel file with campaign configuration"
+DATA_ROVA_UPLOAD_HELP = "Data Rova file for campaign creation"
+DATA_DIVE_UPLOAD_HELP = "Data Dive file for campaign creation"
 
 # Status messages
 TEMPLATE_SUCCESS = "Template loaded successfully"
 BULK_SUCCESS = "Bulk file loaded successfully"
 VALIDATION_SUCCESS = "All validations passed"
 PROCESSING_SUCCESS = "Files processed successfully"
+CAMPAIGN_TEMPLATE_SUCCESS = "Campaign template loaded successfully"
+DATA_ROVA_SUCCESS = "Data Rova loaded successfully"
+DATA_DIVE_SUCCESS = "Data Dive loaded successfully"
 
 # Error messages
 FILE_TOO_LARGE = "File size exceeds maximum limit"
@@ -61,12 +79,14 @@ OPTIMIZATION_BUDGET = "Budget Optimization"
 OPTIMIZATION_KEYWORD = "Keyword Optimization"
 OPTIMIZATION_ASIN = "ASIN Targeting"
 OPTIMIZATION_60_DAYS = "60 Days Optimization"
+OPTIMIZATION_CAMPAIGN_CREATOR = "Campaign Creator"
 
 # Validation messages
 VALIDATION_PORTFOLIO_MATCH = "Portfolio matching validation"
 VALIDATION_ZERO_SALES_DATA = "Zero sales data validation"
 VALIDATION_BID_RANGES = "Bid value range validation"
 VALIDATION_REQUIRED_COLUMNS = "Required columns validation"
+VALIDATION_CAMPAIGN_TEMPLATE = "Campaign template validation"
 
 # Progress messages
 PROGRESS_READING_FILES = "Reading uploaded files..."
@@ -74,6 +94,7 @@ PROGRESS_VALIDATING_DATA = "Validating data integrity..."
 PROGRESS_PROCESSING_OPTIMIZATIONS = "Processing optimizations..."
 PROGRESS_GENERATING_OUTPUT = "Generating output files..."
 PROGRESS_FINALIZING = "Finalizing results..."
+PROGRESS_CREATING_CAMPAIGNS = "Creating campaign bulk file..."
 
 # Help text
 HELP_TEMPLATE_STRUCTURE = """
@@ -110,3 +131,12 @@ HELP_60_DAYS = """
 - Applies optimization for 60-day period
 - Processes items marked for deletion or modification
 """
+
+HELP_CAMPAIGN_CREATOR = """
+Campaign Creator:
+- Creates new campaign bulk files for Amazon Ads
+- Processes template with campaign configuration
+- Generates bulk file ready for upload
+- Validates campaign structure and settings
+"""
+

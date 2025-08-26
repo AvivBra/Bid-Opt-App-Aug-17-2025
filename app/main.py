@@ -9,7 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.state.session_manager import SessionManager
-from app.pages.bid_optimizer import BidOptimizerPage
+from app.components.bid_optimizer import BidOptimizerPage
+from app.components.campaign_optimizer import CampaignOptimizerPage
 
 
 def main():
@@ -19,36 +20,27 @@ def main():
     st.set_page_config(
         page_title="Bid Optimizer",
         layout="wide",  # CHANGED FROM "centered" TO "wide"
-        initial_sidebar_state="collapsed",
+        initial_sidebar_state="expanded",
     )
 
     # Initialize session state
     session_manager = SessionManager()
     session_manager.initialize()
 
-    # Define bid optimizer page function
-    def bid_optimizer_page():
-        """Bid Optimizer page"""
+    # Sidebar navigation
+    page_selection = st.sidebar.radio(
+        "",
+        ["Bid Optimizer", "Campaign Optimizer"],
+        index=0
+    )
+
+    # Render selected page
+    if page_selection == "Bid Optimizer":
         page = BidOptimizerPage()
         page.render()
-
-    # Define a simple second page
-    def campaigns_page():
-        """Campaigns Optimizer page"""
-        st.title("Campaigns Optimizer")
-        st.info("🚧 Coming Soon - This feature is planned for Phase 2 development.")
-
-    # Create pages with two options
-    pages = [
-        st.Page(bid_optimizer_page, title="Bid Optimizer"),
-        st.Page(campaigns_page, title="Campaigns Optimizer"),
-    ]
-
-    # Create top navigation menu
-    pg = st.navigation(pages, position="top")
-
-    # Run the selected page
-    pg.run()
+    elif page_selection == "Campaign Optimizer":
+        page = CampaignOptimizerPage()
+        page.render()
 
 
 if __name__ == "__main__":

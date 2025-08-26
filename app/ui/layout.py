@@ -7,45 +7,18 @@ def apply_custom_css():
     st.markdown(
         """
        <style>
-
+       /* Typography */
        h1 {
-        font-size: 100px !important;
-        margin-bottom: -70px !important;
-        }
-        
-        
-        h3 {
-        font-size: 20px !important;
-        margin-bottom: 40px !important;
-        }
-        
-    
-           
-        /* FIXED DIVIDERS - more specific selectors */
-        hr, 
-        .stMarkdown hr,
-        [data-testid="stHorizontalBlock"] hr,
-        [data-testid="column"] hr,
-        div hr {
-        width: 40% !important;
-        border: none !important;
-        border-top: 1px solid #ffffff !important;
-        opacity: .6 !important;
-        display: block !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        margin-top: 1000 !important;
-        margin-bottom: 1000 !important;
-}
-        
-        
-
+           font-size: 100px !important;
+           margin-bottom: -70px !important;
+       }
        
+       h3 {
+           font-size: 20px !important;
+           margin-bottom: 40px !important;
+       }
        
-       
-       /* Centering CSS */
-       
-       /* Center EVERYTHING in main content - MEDIUM-WIDE */
+       /* Layout - Center main content, keep navigation full width */
        .main .block-container {
            max-width: 750px !important;
            padding: 1.5rem !important;
@@ -53,180 +26,77 @@ def apply_custom_css():
            text-align: center !important;
        }
        
-       /* Make main content area medium-wide */
-       .main {
-           max-width: 850px !important;
-           margin: 0 auto !important;
-       }
-
        
-       /* Center all paragraphs and text */
-       p, span, div, label {
+       /* Center most content except navigation and radio buttons */
+       p:not([data-testid*="stHeader"] *):not(nav *):not(header *):not(.stRadio *), 
+       span:not([data-testid*="stHeader"] *):not(nav *):not(header *):not(.stRadio *), 
+       div:not([data-testid*="stHeader"]):not(nav):not(header):not(.stRadio):not(.stRadio *) {
            text-align: center !important;
-           width: 100%;
        }
        
-       /* Center all buttons */
+       /* Radio buttons - Left aligned with dark accent */
+       .stRadio {
+           text-align: left !important;
+       }
+       
+       .stRadio > div {
+           align-items: flex-start !important;
+       }
+       
+       .stRadio input[type="radio"] {
+           accent-color: #26282c !important;
+           width: 16px !important;
+           height: 16px !important;
+           margin-right: 8px !important;
+       }
+       
+       /* Buttons - Left aligned with custom styling */
        .stButton {
-           text-align: center !important;
+           text-align: left !important;
        }
        
        .stButton > button {
-           margin: 10px auto !important;
-           display: block !important;
+           background-color: #DDDDDD !important;
+           color: #26282c !important;
+           border: none !important;
+           padding: 0.5rem 2rem !important;
+           border-radius: 4px !important;
+           font-weight: 500 !important;
+           min-width: 150px !important;
        }
        
-       /* Center file uploader */
-       .stFileUploader {
-           text-align: center !important;
+       .stButton > button:hover {
+           background-color: #CCCCCC !important;
+           transform: translateY(-2px) !important;
        }
        
-       .stFileUploader > div {
-           margin: 0 auto !important;
-           text-align: center !important;
+       .stButton > button:disabled {
+           background-color: #4a4a4a !important;
+           color: #888 !important;
+           opacity: 0.6 !important;
        }
        
-       .stFileUploader label {
-           text-align: center !important;
-           width: 100% !important;
-       }
-       
-       /* Center checkboxes */
-       .stCheckbox {
-           display: flex !important;
-           justify-content: center !important;
-           text-align: center !important;
-       }
-       
-       .stCheckbox > label {
-           margin: 0 auto !important;
-       }
-       
-       /* Center columns content */
-       [data-testid="column"] {
-           display: flex !important;
-           flex-direction: column !important;
-           align-items: center !important;
-           text-align: center !important;
-       }
-       
-       [data-testid="column"] > * {
-           width: 100% !important;
-           text-align: center !important;
-       }
-       
-       /* Center alerts and messages */
-       .stAlert, .stSuccess, .stError, .stWarning, .stInfo {
-           margin: 20px auto !important;
-           text-align: center !important;
-           max-width: 600px !important;
-       }
-       
-       /* Center markdown content */
-       .stMarkdown {
-           text-align: center !important;
-       }
-       
-       .stMarkdown > div {
-           text-align: center !important;
-       }
-       
-      
-       
-       /* Center metrics */
-       [data-testid="metric-container"] {
-           text-align: center !important;
-           margin: 0 auto !important;
-       }
-       
-       /* Center all input fields */
-       .stTextInput > div {
-           text-align: center !important;
-       }
-       
-       input {
-           text-align: center !important;
-       }
-       
-       /* Center selectbox */
-       .stSelectbox > div {
-           text-align: center !important;
-       }
-       
-       /* Center multiselect */
-       .stMultiSelect > div {
-           text-align: center !important;
-       }
-       
-       /* Center radio buttons */
-       .stRadio > div {
-           display: flex !important;
-           justify-content: center !important;
-       }
-       
-       /* Center all containers */
-       .element-container {
-           display: flex !important;
-           justify-content: center !important;
-       }
-       
-       /* Force center alignment for all divs */
-       div[class*="css"] {
-           text-align: center !important;
-       }
-       
-       /* Streamlit dividers */
-       .stMarkdown hr {
-           margin: 70px auto !important;
-           border-color: #ffffff !important;
-       }
-       
-       [data-testid="stHorizontalBlock"] hr {
-           margin: 50px auto !important;
-           border-color: #ffffff !important;
-       }
-       
-       
-       /* CHECKBOX STYLES - Clean approach based on Inspector */
-       /* Override accent-color for checkbox */
+       /* Form elements accent color */
        input[type="checkbox"] {
            accent-color: #26282c !important;
        }
        
-       /* Specific class from inspector */
-       input.st-bn[type="checkbox"] {
-           accent-color: #26282c !important;
+       /* Make sidebar wider for page names */
+       .css-1d391kg {
+           width: 300px !important;
        }
        
-       /* When checked */
-       input[type="checkbox"][aria-checked="true"] {
-           accent-color: #26282c !important;
+       [data-testid="stSidebar"] {
+           width: 300px !important;
        }
        
-       /* BUTTONS */
-       
-       /* Custom button styling */
-       .stButton > button {
-           background-color: #DDDDDD;
-           color: #26282c;
-           border: none;
-           padding: 0.5rem 2rem;
-           border-radius: 4px;
-           font-weight: 500;
-           transition: all 0.3s;
-           min-width: 150px;
+       [data-testid="stSidebar"] > div {
+           width: 300px !important;
        }
        
-       .stButton > button:hover {
-           background-color: #CCCCCC;
-           transform: translateY(-2px);
-       }
-       
-       .stButton > button:disabled {
-           background-color: #4a4a4a;
-           cursor: not-allowed;
-           transform: none;
-           opacity: 0.6;
+       /* Add very large space between radio buttons */
+       [data-testid="stSidebar"] .stRadio > div > div {
+           margin-bottom: 250px !important;
        }
        </style>
        """,
