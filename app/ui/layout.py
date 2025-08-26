@@ -97,6 +97,11 @@ def apply_custom_css():
        /* Add very large space between radio buttons */
        [data-testid="stSidebar"] .stRadio > div > div {
            margin-bottom: 250px !important;
+    
+       }
+       
+       .stSidebar .stRadio > div {
+           gap: 1px !important;
        }
        </style>
        """,
