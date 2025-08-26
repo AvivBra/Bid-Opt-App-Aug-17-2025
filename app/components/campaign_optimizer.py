@@ -1,12 +1,26 @@
-"""Campaign Optimizer page - UI only version."""
+"""Campaign Optimizer page with validation logic."""
 
 import streamlit as st
-import time
+import pandas as pd
 from data.campaign_template_generator import CampaignTemplateGenerator
+from data.readers.excel_reader import ExcelReader
+from business.campaign_creator.validation import CampaignValidation
+from business.campaign_creator.data_dive_reader import DataDiveReader
+from business.campaign_creator.data_rova_reader import DataRovaReader
+from business.campaign_creator.session_builder import SessionBuilder
+from data.validators.campaign_validators import CampaignTemplateValidator
 
 
 class CampaignOptimizerPage:
     """Main page for Campaign Optimizer functionality."""
+
+    def __init__(self):
+        """Initialize Campaign Optimizer page."""
+        self.validation = CampaignValidation()
+        self.data_dive_reader = DataDiveReader()
+        self.data_rova_reader = DataRovaReader()
+        self.session_builder = SessionBuilder()
+        self.template_validator = CampaignTemplateValidator()
 
     def render(self):
         """Render the complete Campaign Optimizer page."""
@@ -37,59 +51,49 @@ class CampaignOptimizerPage:
             # Use checkboxes for multiple selection
             st.write("Select optimization(s):")
 
-            testing = st.checkbox(
-                "Testing",
-                value=False,
-                key="testing_checkbox",
-            )
-
+            # Store selections in session state
+            testing = st.checkbox("Testing", value=False, key="testing_checkbox")
             testing_pt = st.checkbox(
-                "Testing PT",
-                value=False,
-                key="testing_pt_checkbox",
+                "Testing PT", value=False, key="testing_pt_checkbox"
             )
-
-            phrase = st.checkbox(
-                "Phrase",
-                value=False,
-                key="phrase_checkbox",
-            )
-
-            broad = st.checkbox(
-                "Broad",
-                value=False,
-                key="broad_checkbox",
-            )
-
-            expanded = st.checkbox(
-                "Expanded",
-                value=False,
-                key="expanded_checkbox",
-            )
-
+            phrase = st.checkbox("Phrase", value=False, key="phrase_checkbox")
+            broad = st.checkbox("Broad", value=False, key="broad_checkbox")
+            expanded = st.checkbox("Expanded", value=False, key="expanded_checkbox")
             halloween_testing = st.checkbox(
-                "Halloween Testing",
-                value=False,
-                key="halloween_testing_checkbox",
+                "Halloween Testing", value=False, key="halloween_testing_checkbox"
             )
-
             halloween_phrase = st.checkbox(
-                "Halloween Phrase",
-                value=False,
-                key="halloween_phrase_checkbox",
+                "Halloween Phrase", value=False, key="halloween_phrase_checkbox"
             )
-
             halloween_broad = st.checkbox(
-                "Halloween Broad",
-                value=False,
-                key="halloween_broad_checkbox",
+                "Halloween Broad", value=False, key="halloween_broad_checkbox"
+            )
+            halloween_expanded = st.checkbox(
+                "Halloween Expanded", value=False, key="halloween_expanded_checkbox"
             )
 
-            halloween_expanded = st.checkbox(
-                "Halloween Expanded",
-                value=False,
-                key="halloween_expanded_checkbox",
-            )
+            # Collect selected campaigns
+            selected_campaigns = []
+            if testing:
+                selected_campaigns.append("Testing")
+            if testing_pt:
+                selected_campaigns.append("Testing PT")
+            if phrase:
+                selected_campaigns.append("Phrase")
+            if broad:
+                selected_campaigns.append("Broad")
+            if expanded:
+                selected_campaigns.append("Expanded")
+            if halloween_testing:
+                selected_campaigns.append("Halloween Testing")
+            if halloween_phrase:
+                selected_campaigns.append("Halloween Phrase")
+            if halloween_broad:
+                selected_campaigns.append("Halloween Broad")
+            if halloween_expanded:
+                selected_campaigns.append("Halloween Expanded")
+
+            st.session_state.selected_campaigns = selected_campaigns
 
             st.markdown(
                 """
@@ -104,7 +108,7 @@ class CampaignOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Download Template button - Using the campaign template generator
+            # Download Template button
             template_gen = CampaignTemplateGenerator()
             template_data = template_gen.generate_template()
 
@@ -116,45 +120,143 @@ class CampaignOptimizerPage:
                 use_container_width=True,
             )
 
-            # Upload files - template
+            # Upload Template
             template_file = st.file_uploader(
                 "Upload Template", type=["xlsx"], key="campaign_template_uploader"
             )
+
             if template_file:
-                st.session_state.campaign_template_uploaded = True
-                st.success("Template uploaded!")
+                try:
+                    template_df = pd.read_excel(
+                        template_file, sheet_name="Campaign Configuration"
+                    )
+                    is_valid, msg = self.template_validator.validate(template_df)
+                    if is_valid:
+                        st.session_state.campaign_template_df = template_df
+                        st.session_state.campaign_template_uploaded = True
+                        st.success("Template uploaded successfully!")
+                    else:
+                        st.error(f"Template validation failed: {msg}")
+                        st.session_state.campaign_template_uploaded = False
+                except Exception as e:
+                    st.error(f"Error reading template: {str(e)}")
+                    st.session_state.campaign_template_uploaded = False
+
+            # Data Dive upload - Multiple files
+            data_dive_files = st.file_uploader(
+                "Data Dive (up to 20 files)",
+                type=["xlsx", "csv"],
+                key="data_dive_uploader",
+                accept_multiple_files=True,
+            )
+
+            if data_dive_files:
+                dataframes, error = self.data_dive_reader.read_files(data_dive_files)
+                if error:
+                    st.error(error)
+                    st.session_state.data_dive_dataframes = None
+                else:
+                    st.session_state.data_dive_dataframes = dataframes
+                    st.session_state.data_dive_uploaded = True
+                    targets = self.data_dive_reader.get_all_targets(dataframes)
+                    st.session_state.data_dive_targets = targets
+                    st.success(
+                        f"{len(data_dive_files)} Data Dive files uploaded! Found {len(targets['keywords'])} keywords and {len(targets['asins'])} ASINs"
+                    )
 
             # Data Rova upload
             data_rova_file = st.file_uploader(
-                "Data Rova", type=["xlsx", "csv"], key="data_rova_uploader"
+                "Data Rova (optional)", type=["xlsx", "csv"], key="data_rova_uploader"
             )
+
             if data_rova_file:
-                st.session_state.data_rova_uploaded = True
-                st.success("Data Rova uploaded!")
+                df, error = self.data_rova_reader.read_file(data_rova_file)
+                if error:
+                    st.error(error)
+                    st.session_state.data_rova_df = None
+                else:
+                    st.session_state.data_rova_df = df
+                    st.session_state.data_rova_uploaded = True
+                    st.success("Data Rova uploaded!")
 
-            # Data Dive upload
-            data_dive_file = st.file_uploader(
-                "Data Dive", type=["xlsx", "csv"], key="data_dive_uploader"
-            )
-            if data_dive_file:
-                st.session_state.data_dive_uploaded = True
-                st.success("Data Dive uploaded!")
-
-            # Validation Section - Show based on uploaded files
-            show_validation = False
-
-            if st.session_state.get("campaign_template_uploaded"):
-                show_validation = True
-
-            if show_validation:
+            # Validation Section
+            if st.session_state.get(
+                "campaign_template_uploaded"
+            ) and st.session_state.get("data_dive_uploaded"):
                 st.markdown(
                     "<h3 style='text-align: left;'>3. Data Validation</h3>",
                     unsafe_allow_html=True,
                 )
 
-                # Validation status
-                st.success("Template loaded")
-                st.info("Ready for processing!")
+                # Run validation
+                template_df = st.session_state.get("campaign_template_df")
+                data_dive_dataframes = st.session_state.get("data_dive_dataframes", [])
+                data_rova_df = st.session_state.get("data_rova_df")
+                selected = st.session_state.get("selected_campaigns", [])
+
+                if template_df is not None and data_dive_dataframes and selected:
+                    # Validate files
+                    is_valid, msg, validation_data = self.validation.validate_files(
+                        template_df, data_dive_dataframes, data_rova_df, selected
+                    )
+
+                    if not is_valid:
+                        st.error(msg)
+                    else:
+                        # Check for missing keywords
+                        missing_keywords = validation_data.get(
+                            "missing_keywords", set()
+                        )
+
+                        if missing_keywords and validation_data.get("needs_keywords"):
+                            # Check edge cases
+                            edge_valid, edge_msg = self.validation.check_edge_cases(
+                                validation_data
+                            )
+
+                            if not edge_valid:
+                                st.error(edge_msg)
+                            else:
+                                if edge_msg:  # Warning message
+                                    st.warning(edge_msg)
+
+                                # Show missing keywords in expandable section
+                                with st.expander(
+                                    f"⚠️ {len(missing_keywords)} keywords missing DR info - Click to view"
+                                ):
+                                    keywords_text = "\n".join(sorted(missing_keywords))
+                                    st.text_area(
+                                        "Copy these keywords to search in Data Rova:",
+                                        value=keywords_text,
+                                        height=200,
+                                        help="Select all (Ctrl+A) and copy (Ctrl+C)",
+                                    )
+
+                                st.info(
+                                    "You can either upload Data Rova file or proceed without these keywords"
+                                )
+                        else:
+                            st.success("✅ All validations passed!")
+                            st.info("Ready for processing!")
+
+                # Build session table if validation passed
+                if template_df is not None and data_dive_dataframes:
+                    targets = st.session_state.get("data_dive_targets", {})
+
+                    # Get keyword data from Data Rova if available
+                    keyword_data = {}
+                    if data_rova_df is not None:
+                        keyword_data = self.data_rova_reader.get_keyword_data(
+                            data_rova_df
+                        )
+
+                    # Build session table
+                    session_table = self.session_builder.build_session_table(
+                        template_df, targets, selected, keyword_data
+                    )
+
+                    # Save to session state
+                    self.session_builder.save_to_session_state(session_table)
 
             # Process button section
             st.markdown(
@@ -164,8 +266,12 @@ class CampaignOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Process button - enabled only when template is uploaded
-            process_enabled = st.session_state.get("campaign_template_uploaded", False)
+            # Process button - enabled when minimum requirements met
+            process_enabled = (
+                st.session_state.get("campaign_template_uploaded", False)
+                and st.session_state.get("data_dive_uploaded", False)
+                and len(st.session_state.get("selected_campaigns", [])) > 0
+            )
 
             if st.button(
                 "Process Files",
@@ -173,17 +279,16 @@ class CampaignOptimizerPage:
                 disabled=not process_enabled,
                 key="campaign_process_button",
             ):
-                # Mock processing with progress bar
+                # Processing logic here (placeholder for now)
                 with st.spinner("Processing..."):
                     progress_bar = st.progress(0)
                     for i in range(100):
-                        time.sleep(0.02)  # 2 seconds total
                         progress_bar.progress(i + 1)
 
                     st.session_state.campaign_processing_complete = True
                     st.success("Processing complete!")
 
-            # Output Files section - only show after processing
+            # Output Files section
             if st.session_state.get("campaign_processing_complete", False):
                 st.markdown(
                     """
@@ -197,7 +302,6 @@ class CampaignOptimizerPage:
                     unsafe_allow_html=True,
                 )
 
-                # Mock download button (doesn't actually download anything)
                 st.button(
                     "Download Campaign Bulk File",
                     use_container_width=True,
