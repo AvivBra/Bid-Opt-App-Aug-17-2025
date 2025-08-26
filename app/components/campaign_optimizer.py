@@ -34,16 +34,62 @@ class CampaignOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Use radio buttons for single selection
-            optimization = st.radio(
-                "Select optimization:",
-                ["Campaign Creator"],
-                index=0,  # Default to Campaign Creator
-                key="campaign_optimization_selection",
+            # Use checkboxes for multiple selection
+            st.write("Select optimization(s):")
+            
+            testing = st.checkbox(
+                "Testing",
+                value=False,
+                key="testing_checkbox",
             )
-
-            # Set flag
-            campaign_creator = optimization == "Campaign Creator"
+            
+            testing_pt = st.checkbox(
+                "Testing PT",
+                value=False,
+                key="testing_pt_checkbox",
+            )
+            
+            phrase = st.checkbox(
+                "Phrase",
+                value=False,
+                key="phrase_checkbox",
+            )
+            
+            broad = st.checkbox(
+                "Broad",
+                value=False,
+                key="broad_checkbox",
+            )
+            
+            expanded = st.checkbox(
+                "Expanded",
+                value=False,
+                key="expanded_checkbox",
+            )
+            
+            halloween_testing = st.checkbox(
+                "Halloween Testing",
+                value=False,
+                key="halloween_testing_checkbox",
+            )
+            
+            halloween_phrase = st.checkbox(
+                "Halloween Phrase",
+                value=False,
+                key="halloween_phrase_checkbox",
+            )
+            
+            halloween_broad = st.checkbox(
+                "Halloween Broad",
+                value=False,
+                key="halloween_broad_checkbox",
+            )
+            
+            halloween_expanded = st.checkbox(
+                "Halloween Expanded",
+                value=False,
+                key="halloween_expanded_checkbox",
+            )
 
             st.markdown(
                 """
@@ -97,10 +143,7 @@ class CampaignOptimizerPage:
             # Validation Section - Show based on uploaded files
             show_validation = False
 
-            if (
-                campaign_creator
-                and st.session_state.get("campaign_template_uploaded")
-            ):
+            if st.session_state.get("campaign_template_uploaded"):
                 show_validation = True
 
             if show_validation:
