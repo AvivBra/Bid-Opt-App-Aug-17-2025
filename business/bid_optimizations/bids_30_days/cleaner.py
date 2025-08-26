@@ -101,9 +101,7 @@ class Bids30DaysCleaner(ZeroSalesCleaner):
             )
             cleaning_details["filtering"]["after_ignored_filter"] = len(targeting_df)
             
-            # Filter by State (same as Zero Sales)
-            targeting_df = self._filter_by_state(targeting_df, column_mapping)
-            cleaning_details["filtering"]["after_state_filter"] = len(targeting_df)
+            # State filtering is now done in pre_validation_filter() - no duplicate filtering needed
             
             # Validate numeric values (same as Zero Sales)
             targeting_df, validation_stats = self._validate_numeric_values(

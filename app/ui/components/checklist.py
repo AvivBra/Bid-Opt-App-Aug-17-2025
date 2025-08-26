@@ -17,9 +17,15 @@ class OptimizationChecklist:
         },
         {
             "name": "Bids 30 Days",
-            "enabled": True,  # NOW ENABLED!
+            "enabled": True,
             "description": "Optimize bids for products with sales in last 30 days",
             "bulk_type": "30",
+        },
+        {
+            "name": "Bids 60 Days",
+            "enabled": True,
+            "description": "Optimize bids for products with sales in last 60 days",
+            "bulk_type": "60",
         },
         {"name": "Low Impressions", "enabled": False, "description": "Coming Soon"},
         {"name": "High ACOS", "enabled": False, "description": "Coming Soon"},

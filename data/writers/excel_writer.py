@@ -59,6 +59,16 @@ class ExcelWriter:
 
         output = BytesIO()
 
+        # DEBUG: Log what ExcelWriter received
+        print(f"[DEBUG ExcelWriter] write_excel() called:")
+        print(f"[DEBUG ExcelWriter]   sheets_dict type: {type(sheets_dict)}")
+        print(f"[DEBUG ExcelWriter]   number of sheets: {len(sheets_dict)}")
+        for sheet_name, df in sheets_dict.items():
+            if hasattr(df, 'shape'):
+                print(f"[DEBUG ExcelWriter]   {sheet_name}: {df.shape} (DataFrame)")
+            else:
+                print(f"[DEBUG ExcelWriter]   {sheet_name}: {type(df)}")
+
         try:
             # Create workbook
             wb = Workbook()
@@ -77,29 +87,41 @@ class ExcelWriter:
                     self.logger.warning(f"Skipping empty sheet: {sheet_name}")
                     continue
 
-                # ========== DEBUG START ==========
-                print(f"[DEBUG excel_writer] Creating sheet: {sheet_name}")
-                print(
-                    f"[DEBUG excel_writer] Sheet has {len(df)} rows, {len(df.columns)} columns"
-                )
-                # ========== DEBUG END ==========
 
                 # Create worksheet
                 ws = wb.create_sheet(title=self._clean_sheet_name(sheet_name))
 
+                # Remove internal columns before writing
+                df_to_write = df.copy()
+                internal_columns = ["_needs_highlight", "_needs_pink_highlight", "_error_type"]
+                for col in internal_columns:
+                    if col in df_to_write.columns:
+                        df_to_write = df_to_write.drop(columns=[col])
+                
+                
                 # Write dataframe to worksheet
-                self._write_dataframe_to_sheet(ws, df)
+                self._write_dataframe_to_sheet(ws, df_to_write)
 
                 # Apply formatting
-                self._format_worksheet(ws, df)
+                self._format_worksheet(ws, df_to_write)
 
                 # Highlight error rows if present
                 if hasattr(df, "attrs") and "error_rows" in df.attrs:
                     self._highlight_error_rows(ws, df.attrs["error_rows"])
+                elif "_needs_highlight" in df.columns:
+                    # Handle _needs_highlight column from optimization processors
+                    error_rows = df[df["_needs_highlight"] == True].index.tolist()
+                    self._highlight_error_rows(ws, error_rows)
 
             # Save workbook to BytesIO
             wb.save(output)
             output.seek(0)
+
+            # DEBUG: Log final output details
+            output_size = len(output.getvalue())
+            print(f"[DEBUG ExcelWriter] Final Excel file created:")
+            print(f"[DEBUG ExcelWriter]   File size: {output_size} bytes")
+            print(f"[DEBUG ExcelWriter]   Sheets processed: {len(sheets_dict)}")
 
             self.logger.info(
                 f"Successfully created Excel file with {len(sheets_dict)} sheets"
@@ -118,9 +140,6 @@ class ExcelWriter:
         Excel sheet names must be <= 31 characters and cannot contain: : \ / ? * [ ]
         """
 
-        # ========== DEBUG START ==========
-        print(f"[DEBUG excel_writer] _clean_sheet_name input: '{name}'")
-        # ========== DEBUG END ==========
 
         # Remove invalid characters
         invalid_chars = [":", "\\", "/", "?", "*", "[", "]"]
@@ -129,16 +148,8 @@ class ExcelWriter:
 
         # Truncate to 31 characters
         if len(name) > 31:
-            # ========== DEBUG START ==========
-            print(
-                f"[DEBUG excel_writer] Truncating sheet name from {len(name)} to 31 characters"
-            )
-            # ========== DEBUG END ==========
             name = name[:31]
 
-        # ========== DEBUG START ==========
-        print(f"[DEBUG excel_writer] _clean_sheet_name output: '{name}'")
-        # ========== DEBUG END ==========
 
         return name
 
@@ -160,26 +171,60 @@ class ExcelWriter:
                 cell = ws.cell(row=row_idx, column=col_idx)
 
                 # Convert value to appropriate type
+                col_name = df.columns[col_idx - 1]
+                
                 if pd.isna(value):
                     cell.value = ""
                 elif isinstance(value, (int, float)):
-                    # Check if it's a long ID (more than 10 digits)
-                    if abs(value) > 9999999999:  # More than 10 digits
-                        # Format as text to prevent scientific notation
-                        cell.value = str(int(value))
+                    # Check if this is an ID column that should be formatted as text
+                    is_id_column = any(id_keyword in col_name for id_keyword in [
+                        'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                        'Portfolio ID', 'ASIN', 'Target ID'
+                    ])
+                    
+                    # Format ID columns as text to prevent scientific notation and decimal display
+                    if is_id_column:
+                        # Convert to integer first to remove decimals, then to string
+                        if isinstance(value, float) and value.is_integer():
+                            cell.value = str(int(value))
+                        else:
+                            cell.value = str(value)
                         cell.number_format = "@"  # Text format
+                    
                     else:
                         cell.value = value
                         # Regular number format with 3 decimal places for bid values
-                        col_name = df.columns[col_idx - 1]
                         if "bid" in col_name.lower() or col_name in [
                             "calc1",
                             "calc2",
                             "Target CPA",
                             "Base Bid",
                             "Adj. CPA",
+                            "Max BA",
+                            "Temp Bid",
+                            "Max_Bid",
+                            "calc3",
                         ]:
                             cell.number_format = "0.000"
+                        else:
+                            cell.number_format = "General"
+                elif isinstance(value, str):
+                    # Handle string values - force text format for ID columns
+                    is_id_column = any(id_keyword in col_name for id_keyword in [
+                        'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                        'Portfolio ID', 'ASIN', 'Target ID'
+                    ])
+                    
+                    if is_id_column:
+                        # Remove .0 suffix from string ID values
+                        if value.endswith('.0'):
+                            clean_value = value[:-2]  # Remove '.0'
+                            cell.value = clean_value
+                        else:
+                            cell.value = str(value)
+                        cell.number_format = "@"  # Text format
+                    else:
+                        cell.value = str(value)
                 else:
                     cell.value = str(value)
 
@@ -192,32 +237,10 @@ class ExcelWriter:
         Apply formatting to the worksheet.
         """
 
-        # Auto-adjust column widths
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-
-            for cell in column:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-
-            adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
-            ws.column_dimensions[column_letter].width = adjusted_width
-
-        # Special handling for ID columns - make them wider
-        for col_idx, col_name in enumerate(df.columns, 1):
-            if (
-                "id" in col_name.lower()
-                or "campaign" in col_name.lower()
-                or "group" in col_name.lower()
-            ):
-                column_letter = ws.cell(row=1, column=col_idx).column_letter
-                ws.column_dimensions[column_letter].width = max(
-                    20, ws.column_dimensions[column_letter].width
-                )
+        # Set consistent column width for ALL columns (15 characters)
+        for col_idx in range(1, len(df.columns) + 1):
+            column_letter = ws.cell(row=1, column=col_idx).column_letter
+            ws.column_dimensions[column_letter].width = 15
 
         # Ensure Old Bid column is properly positioned and formatted
         if "Old Bid" in df.columns and "Bid" in df.columns:
@@ -265,28 +288,13 @@ class ExcelWriter:
             BytesIO object containing the Working File
         """
 
-        # ========== DEBUG START ==========
-        print("\n[DEBUG excel_writer] ===== create_working_file START =====")
-        print(
-            f"[DEBUG excel_writer] Optimization results keys: {list(optimization_results.keys())}"
-        )
-        # ========== DEBUG END ==========
 
         # Flatten the nested dictionary
         all_sheets = {}
 
         for opt_name, sheets in optimization_results.items():
-            # ========== DEBUG START ==========
-            print(f"\n[DEBUG excel_writer] Processing optimization: '{opt_name}'")
-            print(
-                f"[DEBUG excel_writer] Sheets in this optimization: {list(sheets.keys())}"
-            )
-            # ========== DEBUG END ==========
 
             for sheet_name, df in sheets.items():
-                # ========== DEBUG START ==========
-                print(f"[DEBUG excel_writer] Original sheet_name: '{sheet_name}'")
-                # ========== DEBUG END ==========
 
                 # Use sheet name directly if it already includes optimization name
                 if opt_name.lower() in sheet_name.lower():
@@ -294,18 +302,9 @@ class ExcelWriter:
                 else:
                     final_sheet_name = f"{sheet_name} - {opt_name}"
 
-                # ========== DEBUG START ==========
-                print(f"[DEBUG excel_writer] Final sheet_name: '{final_sheet_name}'")
-                # ========== DEBUG END ==========
 
                 all_sheets[final_sheet_name] = df
 
-        # ========== DEBUG START ==========
-        print(
-            f"\n[DEBUG excel_writer] All sheet names to be created: {list(all_sheets.keys())}"
-        )
-        print("[DEBUG excel_writer] ===== create_working_file END =====\n")
-        # ========== DEBUG END ==========
 
         # Generate filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")

@@ -239,7 +239,7 @@ class ZeroSalesValidator:
         template_portfolios = set(port_values["Portfolio Name"].dropna().astype(str))
         bulk_portfolios = set(bulk_data[portfolio_col].dropna().astype(str))
 
-        # Remove excluded portfolios from check
+        # Remove excluded portfolios from check (updated with all 13 portfolios)
         excluded = {
             "Flat 30",
             "Flat 25",
@@ -251,16 +251,22 @@ class ZeroSalesValidator:
             "Flat 40 | Opt",
             "Flat 20 | Opt",
             "Flat 15 | Opt",
+            "Winter Clothing / Flat 15",
+            "Flat 10",
+            "Flat 20 | Winter Clothing",
         }
 
         bulk_portfolios_to_check = bulk_portfolios - excluded
         missing_in_template = bulk_portfolios_to_check - template_portfolios
 
         if missing_in_template:
-            missing_list = list(missing_in_template)[:5]  # Show first 5
+            missing_list = sorted(list(missing_in_template))  # Sort alphabetically
+            # Format with one portfolio per line for better readability
+            formatted_list = '\n'.join(f"- {portfolio}" for portfolio in missing_list)
             return (
                 False,
-                f"Portfolios in bulk not found in template: {', '.join(missing_list)}",
+                f"Portfolios in bulk not found in template:\n{formatted_list}",
             )
 
         return True, "Data compatible"
+

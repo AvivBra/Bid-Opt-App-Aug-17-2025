@@ -22,7 +22,7 @@ class ZeroSalesCleaner:
     def __init__(self):
         self.logger = logging.getLogger("optimization.zero_sales.cleaner")
 
-        # 10 excluded portfolios (case sensitive)
+        # 13 excluded portfolios (case sensitive)
         self.excluded_portfolios = [
             "Flat 30",
             "Flat 25",
@@ -34,6 +34,9 @@ class ZeroSalesCleaner:
             "Flat 40 | Opt",
             "Flat 20 | Opt",
             "Flat 15 | Opt",
+            "Winter Clothing / Flat 15",
+            "Flat 10",
+            "Flat 20 | Winter Clothing",
         ]
 
     def clean(
@@ -97,9 +100,7 @@ class ZeroSalesCleaner:
             )
             cleaning_details["filtering"]["after_ignored_filter"] = len(targeting_df)
 
-            # Filter by State (NEW)
-            targeting_df = self._filter_by_state(targeting_df, column_mapping)
-            cleaning_details["filtering"]["after_state_filter"] = len(targeting_df)
+            # State filtering is now done in pre_validation_filter() - no duplicate filtering needed
 
             # Validate numeric values (NEW) - marks errors but doesn't remove rows
             targeting_df, validation_stats = self._validate_numeric_values(
@@ -134,6 +135,43 @@ class ZeroSalesCleaner:
         )
 
         return split_data, cleaning_details
+    
+    def pre_validation_filter(self, bulk_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Pre-validation filtering to remove rows with State != 'enabled'.
+        
+        This runs BEFORE validation to prevent validation errors for portfolios
+        that exist only in paused/disabled campaigns.
+        
+        Args:
+            bulk_data: Raw bulk data DataFrame
+            
+        Returns:
+            Filtered DataFrame with only enabled rows
+        """
+        if bulk_data.empty:
+            return bulk_data
+            
+        df = bulk_data.copy()
+        initial_count = len(df)
+        
+        # Filter by main State column
+        if 'State' in df.columns:
+            df = df[df['State'].astype(str).str.lower() == 'enabled'].copy()
+        
+        # Filter by Campaign State  
+        if 'Campaign State (Informational only)' in df.columns:
+            df = df[df['Campaign State (Informational only)'].astype(str).str.lower() == 'enabled'].copy()
+            
+        # Filter by Ad Group State
+        if 'Ad Group State (Informational only)' in df.columns:
+            df = df[df['Ad Group State (Informational only)'].astype(str).str.lower() == 'enabled'].copy()
+        
+        filtered_count = initial_count - len(df)
+        if filtered_count > 0:
+            self.logger.info(f"Pre-validation filter: removed {filtered_count} non-enabled rows")
+            
+        return df
 
     def _split_by_entity(
         self, df: pd.DataFrame, column_mapping: Dict[str, str]

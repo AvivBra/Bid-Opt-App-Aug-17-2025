@@ -23,6 +23,9 @@ EXCLUDED_PORTFOLIOS = [
     "Flat 40 | Opt",
     "Flat 20 | Opt",
     "Flat 15 | Opt",
+    "Winter Clothing / Flat 15",
+    "Flat 10",
+    "Flat 20 | Winter Clothing",
 ]
 
 # Zero Sales optimization settings
@@ -157,6 +160,82 @@ BIDS_30_DAYS_CONFIG = {
     },
 }
 
+# Bids 60 Days optimization settings
+BIDS_60_DAYS_CONFIG = {
+    "name": "Bids 60 Days",
+    "enabled": True,
+    "description": "Optimize bids for products with sales in last 60 days",
+    # Filtering criteria
+    "filters": {
+        "units_min": 0,  # units > 0
+        "state": "enabled",
+        "exclude_portfolios": EXCLUDED_PORTFOLIOS,
+        "exclude_ignore": True,  # Exclude portfolios with Base Bid = 'Ignore'
+        "exclude_delete_for_60": True,  # Exclude IDs from Delete for 60 sheet
+    },
+    # Calculation thresholds
+    "thresholds": {
+        "calc2_threshold": 1.1,
+        "conversion_rate_threshold": 0.08,  # 8%
+        "units_for_max_bid": 3,
+        "min_bid": 0.02,
+        "max_bid": 1.25,  # Different from Zero Sales (4.00)
+    },
+    # Max Bid values based on units
+    "max_bid_values": {
+        "low_units": 0.8,   # When units < 3
+        "high_units": 1.25, # When units >= 3
+    },
+    # Multipliers
+    "multipliers": {
+        "up_and": 0.5,  # When campaign contains "up and"
+        "old_bid": 1.1, # For Old Bid * 1.1 calculation
+    },
+    # Entity types (same as Zero Sales and 30 Days)
+    "target_entities": ["Keyword", "Product Targeting"],
+    "separate_entities": ["Bidding Adjustment", "Product Ad"],
+    # Required columns for validation
+    "required_columns": [
+        "Entity",
+        "Units",
+        "Bid", 
+        "State",
+        "Campaign ID",
+    ],
+    # Helper columns configuration (10 columns)
+    "helper_columns": {
+        "enabled": True,
+        "columns": [
+            "Old Bid",
+            "calc1", 
+            "calc2",
+            "Target CPA",
+            "Base Bid",
+            "Adj. CPA",
+            "Max BA",
+            "Temp Bid",
+            "Max_Bid",
+            "calc3"
+        ],
+        "insert_position": "before_bid",  # Insert before Bid column
+    },
+    # Output sheets
+    "output_sheets": [
+        "Targeting",         # 58 columns (48 original + 10 helper)
+        "Bidding Adjustment", # 48 columns (original only)
+        "For Harvesting",    # 58 columns (NULL Target CPA rows)
+    ],
+    # Highlighting configuration
+    "highlighting": {
+        "pink_rows": {
+            "conversion_rate_low": 0.08,
+            "bid_out_of_range": [0.02, 1.25],
+            "calculation_errors": True,
+        },
+        "blue_headers": True,  # Highlight participating column headers
+    },
+}
+
 # Future optimizations (TBC - To Be Configured)
 FUTURE_OPTIMIZATIONS = {
     "portfolio_bid": {
@@ -230,6 +309,7 @@ FUTURE_OPTIMIZATIONS = {
 ALL_OPTIMIZATIONS = [
     ZERO_SALES_CONFIG,
     BIDS_30_DAYS_CONFIG,  # Added Bids 30 Days
+    BIDS_60_DAYS_CONFIG,  # Added Bids 60 Days
     *FUTURE_OPTIMIZATIONS.values(),
 ]
 
@@ -518,9 +598,12 @@ def get_optimization_config(optimization_name: str) -> Dict[str, Any]:
 
     if optimization_name.lower() == "bids 30 days":
         return BIDS_30_DAYS_CONFIG
+        
+    if optimization_name.lower() == "bids 60 days":
+        return BIDS_60_DAYS_CONFIG
 
     # Check future optimizations
-    for key, config in FUTURE_OPTIMIZATIONS.items():
+    for config in FUTURE_OPTIMIZATIONS.values():
         if config["name"].lower() == optimization_name.lower():
             return config
 
@@ -542,6 +625,9 @@ def get_enabled_optimizations() -> List[Dict[str, Any]]:
 
     if BIDS_30_DAYS_CONFIG["enabled"]:
         enabled.append(BIDS_30_DAYS_CONFIG)
+        
+    if BIDS_60_DAYS_CONFIG["enabled"]:
+        enabled.append(BIDS_60_DAYS_CONFIG)
 
     for config in FUTURE_OPTIMIZATIONS.values():
         if config.get("enabled", False):
@@ -577,6 +663,10 @@ def get_bid_limits(optimization_name: str = "zero_sales") -> tuple:
 
     if optimization_name.lower() == "bids 30 days":
         config = BIDS_30_DAYS_CONFIG
+        return config["thresholds"]["min_bid"], config["thresholds"]["max_bid"]
+        
+    if optimization_name.lower() == "bids 60 days":
+        config = BIDS_60_DAYS_CONFIG
         return config["thresholds"]["min_bid"], config["thresholds"]["max_bid"]
 
     return BID_CONSTRAINTS["min_bid"], BID_CONSTRAINTS["max_bid"]

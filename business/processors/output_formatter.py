@@ -28,6 +28,17 @@ class OutputFormatter:
             self.bids30_formatter = Bids30DaysOutputFormatter()
         except ImportError:
             self.logger.warning("Bids 30 Days formatter not available")
+        
+        # Import Bids 60 Days formatter if available
+        self.bids60_formatter = None
+        try:
+            from business.bid_optimizations.bids_60_days.output_formatter import (
+                Bids60DaysOutputFormatter,
+            )
+
+            self.bids60_formatter = Bids60DaysOutputFormatter()
+        except ImportError:
+            self.logger.warning("Bids 60 Days formatter not available")
 
     def create_output_files(
         self,
@@ -45,11 +56,14 @@ class OutputFormatter:
             Tuple of (working_file, clean_file) as BytesIO objects
         """
 
-        # Check if this is Bids 30 Days optimization
+        # Check optimization type
         is_bids_30 = self._is_bids_30_days(optimization_results, optimization_name)
+        is_bids_60 = self._is_bids_60_days(optimization_results, optimization_name)
 
         if is_bids_30 and self.bids30_formatter:
             return self._create_bids_30_files(optimization_results)
+        elif is_bids_60 and self.bids60_formatter:
+            return self._create_bids_60_files(optimization_results)
         else:
             return self._create_standard_files(optimization_results)
 
@@ -67,20 +81,29 @@ class OutputFormatter:
             True if Bids 30 Days optimization
         """
 
-        # Check by name
+        # Check by name first (most reliable)
         if optimization_name and "bids 30" in optimization_name.lower():
             return True
 
-        # Check by presence of "For Harvesting" sheet
-        if "For Harvesting" in results:
-            return True
+        return False
 
-        # Check by presence of specific helper columns
-        if results:
-            first_sheet = next(iter(results.values()))
-            bids30_columns = ["Temp Bid", "Max_Bid", "calc3"]
-            if all(col in first_sheet.columns for col in bids30_columns):
-                return True
+    def _is_bids_60_days(
+        self, results: Dict[str, pd.DataFrame], optimization_name: str = None
+    ) -> bool:
+        """
+        Check if this is Bids 60 Days optimization.
+
+        Args:
+            results: Optimization results
+            optimization_name: Optional optimization name
+
+        Returns:
+            True if Bids 60 Days optimization
+        """
+
+        # Check by name first (most reliable)
+        if optimization_name and "bids 60" in optimization_name.lower():
+            return True
 
         return False
 
@@ -121,6 +144,62 @@ class OutputFormatter:
         # Log statistics
         stats = self.bids30_formatter.get_summary_stats(formatted_sheets)
         self.logger.info(f"Bids 30 Days output created: {stats}")
+
+        return working_file, clean_file
+
+    def _create_bids_60_files(
+        self, optimization_results: Dict[str, pd.DataFrame]
+    ) -> Tuple[BytesIO, BytesIO]:
+        """
+        Create output files specifically for Bids 60 Days.
+
+        Args:
+            optimization_results: Dictionary of DataFrames
+
+        Returns:
+            Tuple of (working_file, clean_file)
+        """
+
+        self.logger.info("Creating Bids 60 Days output files")
+
+        # DEBUG: Check incoming data
+        print(f"[DEBUG OutputFormatter] _create_bids_60_files received:")
+        print(f"[DEBUG OutputFormatter]   optimization_results type: {type(optimization_results)}")
+        if isinstance(optimization_results, dict):
+            print(f"[DEBUG OutputFormatter]   Keys: {list(optimization_results.keys())}")
+            for key, df in optimization_results.items():
+                if hasattr(df, 'shape'):
+                    print(f"[DEBUG OutputFormatter]   {key}: {df.shape} (DataFrame)")
+                    if hasattr(df, 'columns'):
+                        print(f"[DEBUG OutputFormatter]     Columns: {list(df.columns)[:5]}...")  # First 5 columns
+                else:
+                    print(f"[DEBUG OutputFormatter]   {key}: {type(df)}")
+
+        # Format output using 60 days formatter
+        formatted_sheets = self.bids60_formatter.format_output(optimization_results)
+
+        # DEBUG: Check formatted data
+        print(f"[DEBUG OutputFormatter] bids60_formatter.format_output() returned:")
+        print(f"[DEBUG OutputFormatter]   formatted_sheets type: {type(formatted_sheets)}")
+        if isinstance(formatted_sheets, dict):
+            print(f"[DEBUG OutputFormatter]   Keys: {list(formatted_sheets.keys())}")
+            for key, df in formatted_sheets.items():
+                if hasattr(df, 'shape'):
+                    print(f"[DEBUG OutputFormatter]   {key}: {df.shape} (DataFrame)")
+                else:
+                    print(f"[DEBUG OutputFormatter]   {key}: {type(df)}")
+
+        # Use our ExcelWriter for proper ID formatting
+        from data.writers.excel_writer import ExcelWriter
+        excel_writer = ExcelWriter()
+        
+        working_file = excel_writer.write_excel(formatted_sheets)
+        clean_file = excel_writer.write_excel(formatted_sheets)  # For now, same as working file
+
+        # DEBUG: Check final output
+        print(f"[DEBUG OutputFormatter] excel_writer.write_excel() returned:")
+        print(f"[DEBUG OutputFormatter]   working_file type: {type(working_file)}")
+        print(f"[DEBUG OutputFormatter]   working_file size: {len(working_file.getvalue()) if hasattr(working_file, 'getvalue') else 'N/A'} bytes")
 
         return working_file, clean_file
 

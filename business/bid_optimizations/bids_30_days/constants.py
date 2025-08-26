@@ -61,7 +61,7 @@ ERROR_MISSING_VALUE = "Missing Value in {column}"
 # Column positions in original bulk (1-based)
 CONVERSION_RATE_COLUMN_POSITION = 55
 
-# Excluded portfolios (same as Zero Sales)
+# Excluded portfolios (same as Zero Sales) - 13 total
 EXCLUDED_PORTFOLIOS = [
     "Flat 30",
     "Flat 25",
@@ -73,4 +73,7 @@ EXCLUDED_PORTFOLIOS = [
     "Flat 40 | Opt",
     "Flat 20 | Opt",
     "Flat 15 | Opt",
+    "Winter Clothing / Flat 15",
+    "Flat 10",
+    "Flat 20 | Winter Clothing",
 ]

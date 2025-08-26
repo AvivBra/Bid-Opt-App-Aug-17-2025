@@ -1,6 +1,6 @@
 """Excluded portfolios list - these portfolios are always filtered out."""
 
-# List of 10 flat portfolios to exclude from all optimizations
+# List of 13 portfolios to exclude from all optimizations
 # These are the actual portfolio names from the specification - Case Sensitive!
 EXCLUDED_PORTFOLIOS = [
     "Flat 30",
@@ -13,6 +13,9 @@ EXCLUDED_PORTFOLIOS = [
     "Flat 40 | Opt",
     "Flat 20 | Opt",
     "Flat 15 | Opt",
+    "Winter Clothing / Flat 15",
+    "Flat 10",
+    "Flat 20 | Winter Clothing",
 ]
 
 # Alias for backward compatibility

@@ -323,3 +323,41 @@ class Bids30DaysValidator(ZeroSalesValidator):
                 "Product Targeting Expression for ASIN detection"
             ]
         }
+    
+    def _check_compatibility(
+        self,
+        template_data: Dict[str, pd.DataFrame],
+        bulk_data: pd.DataFrame,
+        column_mapping: Dict[str, str],
+    ) -> Tuple[bool, str]:
+        """Check if template and bulk data are compatible - Bids 30 Days version."""
+
+        if "portfolio" not in column_mapping:
+            return False, "Portfolio column not found in bulk data"
+
+        portfolio_col = column_mapping["portfolio"]
+        port_values = template_data.get("Port Values", pd.DataFrame())
+
+        if port_values.empty:
+            return False, "Port Values sheet is empty"
+
+        # Get unique portfolios from both files
+        template_portfolios = set(port_values["Portfolio Name"].dropna().astype(str))
+        bulk_portfolios = set(bulk_data[portfolio_col].dropna().astype(str))
+
+        # Remove excluded portfolios from check (use Bids 30 Days constants)
+        excluded = set(EXCLUDED_PORTFOLIOS)
+
+        bulk_portfolios_to_check = bulk_portfolios - excluded
+        missing_in_template = bulk_portfolios_to_check - template_portfolios
+
+        if missing_in_template:
+            missing_list = sorted(list(missing_in_template))  # Sort alphabetically
+            # Format with one portfolio per line for better readability
+            formatted_list = '\n'.join(f"- {portfolio}" for portfolio in missing_list)
+            return (
+                False,
+                f"Portfolios in bulk not found in template:\n{formatted_list}",
+            )
+
+        return True, "Data compatible"
