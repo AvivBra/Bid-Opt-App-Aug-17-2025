@@ -1,6 +1,6 @@
 # עץ קבצים - Campaign Optimizer
-**תאריך:** 26.08.2025  
-**שעה:** 15:40
+**תאריך:** 27.08.2025  
+**שעה:** 08:30
 
 ## עץ קבצים מעודכן
 
@@ -57,63 +57,45 @@
 │   │   ├── __init__.py 🆕
 │   │   ├── constants.py 🆕
 │   │   ├── orchestrator.py 🆕
-│   │   ├── template_validator.py 🆕
-│   │   ├── output_formatter.py 🆕
-│   │   ├── testing 🆕
+│   │   ├── processors 🆕
 │   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── testing_pt 🆕
+│   │   │   ├── base_processor.py 🆕
+│   │   │   ├── testing.py 🆕
+│   │   │   ├── testing_pt.py 🆕
+│   │   │   ├── phrase.py 🆕
+│   │   │   ├── broad.py 🆕
+│   │   │   ├── expanded.py 🆕
+│   │   │   ├── halloween_testing.py 🆕
+│   │   │   ├── halloween_testing_pt.py 🆕
+│   │   │   ├── halloween_phrase.py 🆕
+│   │   │   ├── halloween_broad.py 🆕
+│   │   │   └── halloween_expanded.py 🆕
+│   │   ├── validators 🆕
 │   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── phrase 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── broad 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── expanded 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── halloween_testing 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── halloween_testing_pt 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── halloween_phrase 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   ├── halloween_broad 🆕
-│   │   │   ├── __init__.py 🆕
-│   │   │   ├── processor.py 🆕
-│   │   │   └── cleaner.py 🆕
-│   │   └── halloween_expanded 🆕
-│   │       ├── __init__.py 🆕
-│   │       ├── processor.py 🆕
-│   │       └── cleaner.py 🆕
+│   │   │   ├── base_validator.py 🆕
+│   │   │   ├── testing.py 🆕
+│   │   │   ├── testing_pt.py 🆕
+│   │   │   ├── phrase.py 🆕
+│   │   │   ├── broad.py 🆕
+│   │   │   ├── expanded.py 🆕
+│   │   │   ├── halloween_testing.py 🆕
+│   │   │   ├── halloween_testing_pt.py 🆕
+│   │   │   ├── halloween_phrase.py 🆕
+│   │   │   ├── halloween_broad.py 🆕
+│   │   │   └── halloween_expanded.py 🆕
+│   │   ├── builder.py 🆕
+│   │   └── formatter.py 🆕
 │   ├── common
 │   │   ├── excluded_portfolios.py
 │   │   ├── numeric_validator_py.py
 │   │   ├── portfolio_filter.py
 │   │   └── state_validator_py.py
-│   ├── campaign_common 🆕
-│   │   ├── __init__.py 🆕
-│   │   ├── keyword_processor.py 🆕
-│   │   ├── asin_validator.py 🆕
-│   │   └── campaign_builder.py 🆕
 │   └── processors
 │       ├── excel_base_formatter.py
 │       └── output_formatter.py
 ├── config
 │   ├── constants.py 📝
+│   ├── campaign_config.py 🆕
 │   ├── optimization_config.py
 │   ├── settings.py
 │   └── ui_text.py 📝
