@@ -55,8 +55,8 @@ class KeywordProcessor(BaseCampaignProcessor):
             "Phrase": "Phrase",
             "Broad": "Broad",
             "Halloween Testing": "Testing | Halloween",
-            "Halloween Phrase": "Halloween Phrase",
-            "Halloween Broad": "Halloween Broad"
+            "Halloween Phrase": "Phrase | Halloween",
+            "Halloween Broad": "Broad | Halloween"
         }
         return prefixes.get(self.campaign_type, "Testing")
 
@@ -160,6 +160,12 @@ class KeywordProcessor(BaseCampaignProcessor):
             row["Campaign Targeting Type"] = "MANUAL"
             row["Campaign Status"] = "enabled"
             row["Campaign Bidding Strategy"] = "Dynamic bids - down only"
+            # Add missing Halloween Testing columns
+            row["Start Date"] = pd.Timestamp.now().strftime("%Y%m%d")
+            row["Targeting Type"] = "MANUAL"
+            row["State"] = "enabled"
+            row["Daily Budget"] = str(self.get_daily_budget())
+            row["Bidding Strategy"] = "Dynamic bids - down only"
             
             rows.append(row)
         
@@ -192,10 +198,13 @@ class KeywordProcessor(BaseCampaignProcessor):
             row["Entity"] = "Ad Group"
             row["Operation"] = "Create"
             row["Campaign ID"] = campaign_id
+            row["Campaign Name"] = campaign_id
             row["Ad Group ID"] = ad_group_id
             row["Ad Group Name"] = ad_group_id
             row["Ad Group Default Bid"] = str(self.get_default_bid())
             row["Ad Group Status"] = "enabled"
+            # Add missing Halloween Testing column
+            row["State"] = "enabled"
             
             rows.append(row)
         
@@ -228,9 +237,13 @@ class KeywordProcessor(BaseCampaignProcessor):
             row["Entity"] = "Product Ad"
             row["Operation"] = "Create"
             row["Campaign ID"] = campaign_id
+            row["Campaign Name"] = campaign_id
             row["Ad Group ID"] = ad_group_id
+            row["Ad Group Name"] = ad_group_id
             row["ASIN"] = asin
             row["Status"] = "enabled"
+            # Add missing Halloween Testing column
+            row["State"] = "enabled"
             
             rows.append(row)
         
