@@ -87,7 +87,7 @@ CAMPAIGN_TYPES = {
         "name": "Halloween Expanded",
         "bid_column": "Halloween Expanded Bid",
         "match_type": "broad",
-        "targeting": "keyword"
+        "targeting": "product"
     }
 }
 

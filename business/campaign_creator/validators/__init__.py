@@ -3,6 +3,7 @@
 from .base_validator import BaseCampaignValidator
 from .halloween_testing import HalloweenTestingValidator
 from .keyword_validator import KeywordValidator
+from .product_targeting_validator import ProductTargetingValidator
 
 
 def get_validator(campaign_type: str):
@@ -53,5 +54,6 @@ __all__ = [
     "BaseCampaignValidator",
     "HalloweenTestingValidator",
     "KeywordValidator",
+    "ProductTargetingValidator",
     "get_validator",
 ]

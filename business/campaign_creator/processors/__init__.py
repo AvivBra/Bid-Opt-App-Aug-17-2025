@@ -3,6 +3,7 @@
 from .base_processor import BaseCampaignProcessor
 from .halloween_testing import HalloweenTestingProcessor
 from .keyword_processor import KeywordProcessor
+from .product_targeting_processor import ProductTargetingProcessor
 
 
 def get_processor(campaign_type: str):
@@ -53,5 +54,6 @@ __all__ = [
     "BaseCampaignProcessor",
     "HalloweenTestingProcessor",
     "KeywordProcessor",
+    "ProductTargetingProcessor",
     "get_processor",
 ]

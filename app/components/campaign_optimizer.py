@@ -64,6 +64,9 @@ class CampaignOptimizerPage:
             halloween_testing = st.checkbox(
                 "Halloween Testing", value=False, key="halloween_testing_checkbox"
             )
+            halloween_testing_pt = st.checkbox(
+                "Halloween Testing PT", value=False, key="halloween_testing_pt_checkbox"
+            )
             halloween_phrase = st.checkbox(
                 "Halloween Phrase", value=False, key="halloween_phrase_checkbox"
             )
@@ -88,6 +91,8 @@ class CampaignOptimizerPage:
                 selected_campaigns.append("Expanded")
             if halloween_testing:
                 selected_campaigns.append("Halloween Testing")
+            if halloween_testing_pt:
+                selected_campaigns.append("Halloween Testing PT")
             if halloween_phrase:
                 selected_campaigns.append("Halloween Phrase")
             if halloween_broad:

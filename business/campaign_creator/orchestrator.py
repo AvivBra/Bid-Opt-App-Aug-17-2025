@@ -5,8 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from io import BytesIO
 import logging
 
-from .processors import get_processor
-from .validators import get_validator
+from .builder import get_processor, get_validator
 from .formatter import CampaignFormatter
 from .session_builder import SessionBuilder
 from .validation import CampaignValidation
@@ -173,12 +172,12 @@ class CampaignCreatorOrchestrator:
             "Halloween Testing": "halloween_testing",
             "Halloween Phrase": "halloween_phrase", 
             "Halloween Broad": "halloween_broad",
-            "Halloween Expanded": "halloween_expanded",
+            "Halloween Expanded": "Halloween Expanded",
             "Testing": "testing",
-            "Testing PT": "testing_pt",
+            "Testing PT": "Testing PT",
             "Phrase": "phrase",
             "Broad": "broad",
-            "Expanded": "expanded"
+            "Expanded": "Expanded"
         }
         return mapping.get(ui_campaign_type, ui_campaign_type.lower().replace(" ", "_"))
 
