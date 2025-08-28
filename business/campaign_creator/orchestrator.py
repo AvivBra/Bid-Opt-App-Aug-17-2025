@@ -7,7 +7,6 @@ import logging
 
 from .processors import get_processor
 from .validators import get_validator
-from .builder import CampaignBuilder
 from .formatter import CampaignFormatter
 from .session_builder import SessionBuilder
 from .validation import CampaignValidation
@@ -22,7 +21,6 @@ class CampaignCreatorOrchestrator:
         self.logger = logging.getLogger(__name__)
         self.session_builder = SessionBuilder()
         self.validation = CampaignValidation()
-        self.builder = CampaignBuilder()
         self.formatter = CampaignFormatter()
         self.bulk_writer = CampaignBulkWriter()
 
@@ -244,7 +242,7 @@ class CampaignCreatorOrchestrator:
             return False, "No campaigns selected"
 
         # Check if keyword campaigns need Data Rova
-        keyword_campaigns = ["testing", "phrase", "broad", "halloween_testing", "halloween_phrase", "halloween_broad"]
+        keyword_campaigns = ["Testing", "Phrase", "Broad", "Halloween Testing", "Halloween Phrase", "Halloween Broad"]
         needs_rova = any(c in keyword_campaigns for c in selected_campaigns)
         
         if needs_rova and (data_rova_df is None or data_rova_df.empty):

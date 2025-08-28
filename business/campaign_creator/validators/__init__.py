@@ -2,6 +2,7 @@
 
 from .base_validator import BaseCampaignValidator
 from .halloween_testing import HalloweenTestingValidator
+from .keyword_validator import KeywordValidator
 
 
 def get_validator(campaign_type: str):
@@ -13,14 +14,44 @@ def get_validator(campaign_type: str):
     Returns:
         Validator instance or None
     """
-    validators = {
+    # For keyword campaigns, use KeywordValidator
+    keyword_campaigns = {
+        "testing": KeywordValidator,
+        "phrase": KeywordValidator,
+        "broad": KeywordValidator,
+        "halloween_phrase": KeywordValidator,
+        "halloween_broad": KeywordValidator,
+    }
+
+    # For other specific validators
+    specific_validators = {
         "halloween_testing": HalloweenTestingValidator,
     }
 
-    validator_class = validators.get(campaign_type)
+    # Check keyword campaigns first
+    if campaign_type in keyword_campaigns:
+        validator_class = keyword_campaigns[campaign_type]
+        # Convert processor name back to UI name for KeywordValidator
+        ui_name_map = {
+            "testing": "Testing",
+            "phrase": "Phrase",
+            "broad": "Broad",
+            "halloween_phrase": "Halloween Phrase",
+            "halloween_broad": "Halloween Broad",
+        }
+        return validator_class(ui_name_map.get(campaign_type, campaign_type))
+
+    # Check specific validators
+    validator_class = specific_validators.get(campaign_type)
     if validator_class:
         return validator_class()
+
     return None
 
 
-__all__ = ["BaseCampaignValidator", "HalloweenTestingValidator", "get_validator"]
+__all__ = [
+    "BaseCampaignValidator",
+    "HalloweenTestingValidator",
+    "KeywordValidator",
+    "get_validator",
+]
