@@ -236,6 +236,56 @@ BIDS_60_DAYS_CONFIG = {
     },
 }
 
+# Empty Portfolios optimization settings
+EMPTY_PORTFOLIOS_CONFIG = {
+    "name": "Empty Portfolios",
+    "enabled": True,
+    "description": "Optimize empty portfolios by assigning numeric names for easy identification",
+    # Required sheets for validation
+    "required_sheets": [
+        "Sponsored Products Campaigns",
+        "Portfolios"
+    ],
+    # Required columns for validation (from constants.py)
+    "required_columns": [
+        "Campaign ID", "Campaign", "Campaign Name (Informational only)",
+        "Portfolio ID", "Portfolio Name (Informational only)",
+        "Campaign State", "Campaign State (Informational only)",
+        "Campaign Daily Budget", "Campaign Start Date", "Campaign End Date",
+        "Campaign Targeting Type", "Ad Group ID", "Ad Group",
+        "Ad Group Name (Informational only)", "Ad Group State (Informational only)",
+        "Ad Group Default Bid", "Ad Group Default Bid (Informational only)",
+        "Bid Adjustment", "Placement Type", "Increase bids by placement",
+        "Entity", "Operation", "Keyword ID", "Keyword Text",
+        "Product Targeting ID", "Product Targeting Expression", "Match Type",
+        "State", "Bid", "Keyword Bid (Informational only)",
+        "Campaign ID (Read only)", "Ad Group ID (Read only)",
+        "Keyword ID (Read only)", "Product Targeting ID (Read only)",
+        "Impressions", "Clicks", "Spend", "Sales", "Orders", "Units",
+        "Conversion Rate", "ACOS", "CPC", "ROAS", "Bidding Strategy",
+        "Campaign Budget Type", "Product Ad ID", "SKU"
+    ],
+    # Entity types to process
+    "target_entities": ["Campaign"],
+    # Processing configuration
+    "processing": {
+        "filter_entity": "Campaign",
+        "update_operation": "update",
+        "highlight_color": "FFFF00"  # Yellow
+    },
+    # No helper columns for Empty Portfolios
+    "helper_columns": {
+        "enabled": False,
+        "columns": []
+    },
+    # Output sheets
+    "output_sheets": [
+        "Sponsored Products Campaigns",
+        "Portfolios",
+        "Summary"
+    ]
+}
+
 # Future optimizations (TBC - To Be Configured)
 FUTURE_OPTIMIZATIONS = {
     "portfolio_bid": {
@@ -310,6 +360,7 @@ ALL_OPTIMIZATIONS = [
     ZERO_SALES_CONFIG,
     BIDS_30_DAYS_CONFIG,  # Added Bids 30 Days
     BIDS_60_DAYS_CONFIG,  # Added Bids 60 Days
+    EMPTY_PORTFOLIOS_CONFIG,  # Added Empty Portfolios
     *FUTURE_OPTIMIZATIONS.values(),
 ]
 
@@ -458,13 +509,26 @@ def apply_text_format_before_write(df: pd.DataFrame) -> pd.DataFrame:
                 mask = df_copy[col].notna()
 
                 # Convert to string, removing decimal points for integers
-                df_copy.loc[mask, col] = df_copy.loc[mask, col].apply(
-                    lambda x: str(int(x))
-                    if isinstance(x, (int, float)) and x == int(x)
-                    else str(x)
-                    if pd.notna(x)
-                    else ""
-                )
+                def safe_convert_to_string(x):
+                    try:
+                        if pd.isna(x):
+                            return ""
+                        elif hasattr(x, '__iter__') and not isinstance(x, str):
+                            # Handle array/list data - convert to string representation
+                            return str(x)
+                        elif isinstance(x, (int, float)) and not isinstance(x, bool):
+                            if x == int(x):
+                                return str(int(x))
+                            else:
+                                return str(x)
+                        else:
+                            return str(x)
+                    except (ValueError, TypeError, OverflowError):
+                        return str(x)
+                
+                # Use .loc with proper boolean indexing to avoid the warning
+                if mask.any():
+                    df_copy.loc[mask, col] = df_copy.loc[mask, col].apply(safe_convert_to_string)
 
     return df_copy
 
@@ -601,6 +665,9 @@ def get_optimization_config(optimization_name: str) -> Dict[str, Any]:
         
     if optimization_name.lower() == "bids 60 days":
         return BIDS_60_DAYS_CONFIG
+        
+    if optimization_name.lower() == "empty portfolios":
+        return EMPTY_PORTFOLIOS_CONFIG
 
     # Check future optimizations
     for config in FUTURE_OPTIMIZATIONS.values():
@@ -628,6 +695,9 @@ def get_enabled_optimizations() -> List[Dict[str, Any]]:
         
     if BIDS_60_DAYS_CONFIG["enabled"]:
         enabled.append(BIDS_60_DAYS_CONFIG)
+        
+    if EMPTY_PORTFOLIOS_CONFIG["enabled"]:
+        enabled.append(EMPTY_PORTFOLIOS_CONFIG)
 
     for config in FUTURE_OPTIMIZATIONS.values():
         if config.get("enabled", False):

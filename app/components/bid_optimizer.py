@@ -37,7 +37,7 @@ class BidOptimizerPage:
             # Use radio buttons for single selection
             optimization = st.radio(
                 "Select optimization:",
-                ["Zero Sales", "Bids 30 Days", "Bids 60 Days"],
+                ["Zero Sales", "Bids 30 Days", "Bids 60 Days", "Empty Portfolios"],
                 index=0,  # Default to Zero Sales
                 key="optimization_selection",
             )
@@ -46,6 +46,7 @@ class BidOptimizerPage:
             zero_sales = optimization == "Zero Sales"
             bids_30_days = optimization == "Bids 30 Days"
             bids_60_days = optimization == "Bids 60 Days"
+            empty_portfolios = optimization == "Empty Portfolios"
 
             st.markdown(
                 """
@@ -60,43 +61,48 @@ class BidOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Download Template button
-            template_gen = TemplateGenerator()
-            template_data = template_gen.generate_template()
+            # Download Template button (not shown for Empty Portfolios)
+            if not empty_portfolios:
+                template_gen = TemplateGenerator()
+                template_data = template_gen.generate_template()
 
-            st.download_button(
-                label="Download Template",
-                data=template_data,
-                file_name="template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+                st.download_button(
+                    label="Download Template",
+                    data=template_data,
+                    file_name="template.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
 
-            # Upload files - template
-            template_file = st.file_uploader(
-                "Upload Template", type=["xlsx"], key="template_uploader"
-            )
-            if template_file:
-                st.session_state.template_uploaded = True
-                st.success("Template uploaded!")
+            # Upload files - template (not needed for Empty Portfolios)
+            if not empty_portfolios:
+                template_file = st.file_uploader(
+                    "Upload Template", type=["xlsx"], key="template_uploader"
+                )
+                if template_file:
+                    st.session_state.template_uploaded = True
+                    st.success("Template uploaded!")
+            else:
+                # Empty Portfolios doesn't need template
+                template_file = None
 
-            # Upload files - bulk 60 (only show if Zero Sales selected)
-            if zero_sales:
+            # Upload files - bulk 60 (show for Zero Sales and Empty Portfolios)
+            if zero_sales or empty_portfolios:
                 bulk_60_file = st.file_uploader(
                     "Bulk 60 Days", type=["xlsx", "csv"], key="bulk_60_uploader"
                 )
                 if bulk_60_file:
                     st.session_state.bulk_60_uploaded = True
                     st.success("Bulk 60 uploaded!")
-            elif not zero_sales and not bids_30_days:
+            elif not zero_sales and not bids_30_days and not empty_portfolios:
                 st.button(
-                    "Bulk 60 Days (Select Zero Sales first)",
+                    "Bulk 60 Days (Select Zero Sales or Empty Portfolios first)",
                     disabled=True,
                     use_container_width=True,
                 )
 
-            # Upload files - bulk 30 (only show if Bids 30 Days selected)
-            if bids_30_days:
+            # Upload files - bulk 30 (show for Bids 30 Days and Empty Portfolios)
+            if bids_30_days or empty_portfolios:
                 bulk_30_file = st.file_uploader(
                     "Bulk 30 Days", type=["xlsx", "csv"], key="bulk_30_uploader"
                 )
@@ -119,7 +125,7 @@ class BidOptimizerPage:
                 )
             else:
                 st.button(
-                    "Bulk 30 Days (Select Bids 30 Days first)",
+                    "Bulk 30 Days (Select Bids 30 Days or Empty Portfolios first)",
                     disabled=True,
                     use_container_width=True,
                 )
@@ -139,6 +145,70 @@ class BidOptimizerPage:
                 use_container_width=True,
                 help="This feature will be available in a future update",
             )
+
+            # Empty Portfolios Auto-Processing
+            if empty_portfolios and (st.session_state.get("bulk_60_uploaded") or st.session_state.get("bulk_30_uploaded")):
+                # Determine which bulk file to use
+                bulk_type = None
+                if st.session_state.get("bulk_60_uploaded"):
+                    bulk_type = "60"
+                    bulk_file = bulk_60_file if 'bulk_60_file' in locals() else None
+                elif st.session_state.get("bulk_30_uploaded"):
+                    bulk_type = "30"
+                    bulk_file = bulk_30_file if 'bulk_30_file' in locals() else None
+                
+                if bulk_file and bulk_type:
+                    # Show processing status
+                    st.markdown(
+                        "<h3 style='text-align: center;'>3. Processing Empty Portfolios</h3>",
+                        unsafe_allow_html=True,
+                    )
+                    
+                    with st.spinner("Processing Empty Portfolios optimization..."):
+                        # Import required modules
+                        import pandas as pd
+                        from datetime import datetime
+                        from business.bid_optimizations.empty_portfolios.orchestrator import (
+                            EmptyPortfoliosOrchestrator,
+                        )
+                        import io
+                        
+                        try:
+                            # Read all sheets for Empty Portfolios
+                            bulk_data = pd.read_excel(
+                                io.BytesIO(bulk_file.read()), sheet_name=None
+                            )
+                            bulk_file.seek(0)
+                            
+                            # Create and run Empty Portfolios optimization
+                            optimization = EmptyPortfoliosOrchestrator()
+                            success, message, output_bytes = optimization.run_optimization(bulk_data)
+                            
+                            if not success:
+                                st.error(f"Empty Portfolios optimization failed: {message}")
+                            else:
+                                # Show success message
+                                st.success(message)
+                                
+                                # Show download section
+                                st.markdown(
+                                    "<h3 style='text-align: center;'>4. Download Result</h3>",
+                                    unsafe_allow_html=True,
+                                )
+                                
+                                # Show download button
+                                st.download_button(
+                                    label="Download Empty Portfolios File",
+                                    data=output_bytes,
+                                    file_name=f"empty_portfolios_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True,
+                                )
+                        
+                        except Exception as e:
+                            st.error(f"Error processing Empty Portfolios: {str(e)}")
+                            import traceback
+                            st.code(traceback.format_exc())
 
             # Validation Section - Show based on selected optimization
             show_validation = False

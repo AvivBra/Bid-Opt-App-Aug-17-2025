@@ -53,6 +53,11 @@ class BidState:
             # Optimization selection
             st.session_state.selected_optimizations = []
 
+            # Empty Portfolios specific state - ADDED
+            st.session_state.empty_portfolios_selected = False
+            st.session_state.empty_portfolios_processed = False
+            st.session_state.empty_portfolios_results = None
+
             # Output files
             st.session_state.working_file = None
             st.session_state.clean_file = None
@@ -164,6 +169,10 @@ class BidState:
         st.session_state.working_file = None
         st.session_state.clean_file = None
 
+        # Reset Empty Portfolios specific state - ADDED
+        st.session_state.empty_portfolios_processed = False
+        st.session_state.empty_portfolios_results = None
+
     def get_template(self) -> Optional[pd.DataFrame]:
         """Get template DataFrame from state."""
         return st.session_state.get("template_df")
@@ -226,6 +235,15 @@ class BidState:
         Returns:
             True if ready to process
         """
+        # For Empty Portfolios optimization - no template needed
+        if st.session_state.get("empty_portfolios_selected", False):
+            return (
+                self.has_any_bulk()
+                and st.session_state.get("validation_passed", False)
+                and len(st.session_state.get("selected_optimizations", [])) > 0
+            )
+
+        # For other optimizations - template required
         return (
             st.session_state.get("template_uploaded", False)
             and self.has_any_bulk()  # Changed from bulk_60_uploaded
@@ -252,7 +270,7 @@ class BidState:
         """
         Handle optimization change.
 
-        NEW METHOD
+        NEW METHOD - UPDATED FOR EMPTY PORTFOLIOS
 
         Args:
             new_optimization: Name of the newly selected optimization
@@ -268,11 +286,21 @@ class BidState:
             self._clear_all_bulk_data()
             self.reset_validation()
 
+            # Set flags for Empty Portfolios - ADDED
+            if new_optimization == "Empty Portfolios":
+                st.session_state.empty_portfolios_selected = True
+            else:
+                st.session_state.empty_portfolios_selected = False
+
             # Update bulk type based on optimization
             if new_optimization == "Zero Sales":
                 st.session_state.active_bulk_type = "60"
             elif new_optimization == "Bids 30 Days":
                 st.session_state.active_bulk_type = "30"
+            elif new_optimization == "Bids 60 Days":
+                st.session_state.active_bulk_type = "60"
+            elif new_optimization == "Empty Portfolios":
+                st.session_state.active_bulk_type = None  # Any bulk type works
             else:
                 st.session_state.active_bulk_type = None
 
@@ -303,6 +331,14 @@ class BidState:
 
         if "statistics" in output_data:
             st.session_state.processing_stats = output_data["statistics"]
+
+        # Save Empty Portfolios specific results if present - ADDED
+        if st.session_state.get("empty_portfolios_selected", False):
+            st.session_state.empty_portfolios_processed = True
+            if "empty_portfolios_results" in output_data:
+                st.session_state.empty_portfolios_results = output_data[
+                    "empty_portfolios_results"
+                ]
 
     def set_error(self, error_msg: str) -> None:
         """Set processing error state."""
@@ -368,9 +404,12 @@ class BidState:
 
     def has_required_files(self) -> bool:
         """Check if required files (template and bulk) are uploaded."""
-        return (
-            st.session_state.get("template_uploaded", False) and self.has_any_bulk()
-        )  # Changed to has_any_bulk
+        # For Empty Portfolios - no template needed
+        if st.session_state.get("empty_portfolios_selected", False):
+            return self.has_any_bulk()
+
+        # For other optimizations - template required
+        return st.session_state.get("template_uploaded", False) and self.has_any_bulk()
 
 
 # Backward compatibility - keep the standalone functions as well

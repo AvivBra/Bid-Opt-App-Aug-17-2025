@@ -80,6 +80,7 @@ OPTIMIZATION_KEYWORD = "Keyword Optimization"
 OPTIMIZATION_ASIN = "ASIN Targeting"
 OPTIMIZATION_60_DAYS = "60 Days Optimization"
 OPTIMIZATION_CAMPAIGN_CREATOR = "Campaign Creator"
+OPTIMIZATION_EMPTY_PORTFOLIOS = "Empty Portfolios"  # ADDED
 
 # Validation messages
 VALIDATION_PORTFOLIO_MATCH = "Portfolio matching validation"
@@ -87,6 +88,7 @@ VALIDATION_ZERO_SALES_DATA = "Zero sales data validation"
 VALIDATION_BID_RANGES = "Bid value range validation"
 VALIDATION_REQUIRED_COLUMNS = "Required columns validation"
 VALIDATION_CAMPAIGN_TEMPLATE = "Campaign template validation"
+VALIDATION_EMPTY_PORTFOLIOS = "Empty portfolios validation"  # ADDED
 
 # Progress messages
 PROGRESS_READING_FILES = "Reading uploaded files..."
@@ -95,6 +97,7 @@ PROGRESS_PROCESSING_OPTIMIZATIONS = "Processing optimizations..."
 PROGRESS_GENERATING_OUTPUT = "Generating output files..."
 PROGRESS_FINALIZING = "Finalizing results..."
 PROGRESS_CREATING_CAMPAIGNS = "Creating campaign bulk file..."
+PROGRESS_FINDING_EMPTY = "Finding empty portfolios..."  # ADDED
 
 # Help text
 HELP_TEMPLATE_STRUCTURE = """
@@ -140,3 +143,13 @@ Campaign Creator:
 - Validates campaign structure and settings
 """
 
+# Empty Portfolios help text - ADDED
+HELP_EMPTY_PORTFOLIOS = """
+Empty Portfolios Optimization:
+- Identifies portfolios without any campaigns
+- Renames empty portfolios with numeric names
+- Updates Portfolio Name to smallest available number
+- Sets Operation to 'update' for empty portfolios
+- Highlights modified rows in yellow
+- Filters campaigns sheet to Entity = Campaign only
+"""
