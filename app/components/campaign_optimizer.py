@@ -8,6 +8,7 @@ from business.campaign_creator.validation import CampaignValidation
 from business.campaign_creator.data_dive_reader import DataDiveReader
 from business.campaign_creator.data_rova_reader import DataRovaReader
 from business.campaign_creator.session_builder import SessionBuilder
+from business.campaign_creator.orchestrator import CampaignCreatorOrchestrator
 from data.validators.campaign_validators import CampaignTemplateValidator
 
 
@@ -20,6 +21,7 @@ class CampaignOptimizerPage:
         self.data_dive_reader = DataDiveReader()
         self.data_rova_reader = DataRovaReader()
         self.session_builder = SessionBuilder()
+        self.orchestrator = CampaignCreatorOrchestrator()
         self.template_validator = CampaignTemplateValidator()
 
     def render(self):
@@ -279,14 +281,56 @@ class CampaignOptimizerPage:
                 disabled=not process_enabled,
                 key="campaign_process_button",
             ):
-                # Processing logic here (placeholder for now)
-                with st.spinner("Processing..."):
-                    progress_bar = st.progress(0)
-                    for i in range(100):
-                        progress_bar.progress(i + 1)
-
-                    st.session_state.campaign_processing_complete = True
-                    st.success("Processing complete!")
+                # Real campaign processing
+                with st.spinner("Processing campaigns..."):
+                    try:
+                        # Get data from session state
+                        template_df = st.session_state.get("campaign_template_df")
+                        data_dive_targets = st.session_state.get("data_dive_targets", {})
+                        data_rova_df = st.session_state.get("data_rova_df")
+                        selected = st.session_state.get("selected_campaigns", [])
+                        
+                        # Set up logging to capture debug info
+                        import logging
+                        import io
+                        log_stream = io.StringIO()
+                        handler = logging.StreamHandler(log_stream)
+                        handler.setLevel(logging.INFO)
+                        formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+                        handler.setFormatter(formatter)
+                        
+                        # Add handler to relevant loggers
+                        processor_logger = logging.getLogger('business.campaign_creator.processors.halloween_testing')
+                        processor_logger.addHandler(handler)
+                        processor_logger.setLevel(logging.INFO)
+                        
+                        orchestrator_logger = logging.getLogger('business.campaign_creator.orchestrator')
+                        orchestrator_logger.addHandler(handler)
+                        orchestrator_logger.setLevel(logging.INFO)
+                        
+                        # Use the original UI campaign names - the orchestrator will handle conversion
+                        # Process campaigns
+                        success, output_file, error = self.orchestrator.process_multiple_campaigns(
+                            selected, template_df, data_dive_targets, data_rova_df
+                        )
+                        
+                        # Show logs for debugging
+                        logs = log_stream.getvalue()
+                        if logs:
+                            st.text_area("Processing Debug Info:", logs, height=300)
+                        
+                        if success:
+                            # Store the generated file in session state
+                            st.session_state.campaign_bulk_file = output_file
+                            st.session_state.campaign_processing_complete = True
+                            st.success("✅ Campaign processing complete!")
+                        else:
+                            st.error(f"❌ Processing failed: {error}")
+                            st.session_state.campaign_processing_complete = False
+                            
+                    except Exception as e:
+                        st.error(f"❌ Unexpected error during processing: {str(e)}")
+                        st.session_state.campaign_processing_complete = False
 
             # Output Files section
             if st.session_state.get("campaign_processing_complete", False):
@@ -302,8 +346,20 @@ class CampaignOptimizerPage:
                     unsafe_allow_html=True,
                 )
 
-                st.button(
-                    "Download Campaign Bulk File",
-                    use_container_width=True,
-                    key="campaign_download_button",
-                )
+                # Check if we have a bulk file to download
+                bulk_file = st.session_state.get("campaign_bulk_file")
+                if bulk_file:
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"campaign_bulk_{timestamp}.xlsx"
+                    
+                    st.download_button(
+                        label="Download Campaign Bulk File",
+                        data=bulk_file.getvalue(),
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="campaign_download_button",
+                    )
+                else:
+                    st.error("No bulk file available. Please process campaigns first.")

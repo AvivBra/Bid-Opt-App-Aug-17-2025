@@ -115,25 +115,29 @@ class CampaignCreatorOrchestrator:
 
             # Process each campaign and collect results
             all_sheets = {}
-            for campaign_type in selected_campaigns:
-                validator = get_validator(campaign_type)
+            for ui_campaign_type in selected_campaigns:
+                # Convert UI campaign name to processor format
+                processor_campaign_type = self._ui_to_processor_name(ui_campaign_type)
+                
+                validator = get_validator(processor_campaign_type)
                 if not validator:
-                    self.logger.warning(f"No validator for {campaign_type}")
+                    self.logger.warning(f"No validator for {processor_campaign_type}")
                     continue
 
                 is_valid, error = validator.validate(template_df, session_table, data_rova_df)
                 if not is_valid:
-                    self.logger.warning(f"Validation failed for {campaign_type}: {error}")
+                    self.logger.warning(f"Validation failed for {processor_campaign_type}: {error}")
                     continue
 
-                processor = get_processor(campaign_type)
+                processor = get_processor(processor_campaign_type)
                 if not processor:
-                    self.logger.warning(f"No processor for {campaign_type}")
+                    self.logger.warning(f"No processor for {processor_campaign_type}")
                     continue
 
-                filtered_table = self._filter_for_campaign(session_table, campaign_type)
+                # Filter using UI campaign name (matches session table)
+                filtered_table = self._filter_for_campaign(session_table, ui_campaign_type)
                 if filtered_table.empty:
-                    self.logger.warning(f"No data for {campaign_type}")
+                    self.logger.warning(f"No data for {ui_campaign_type} after filtering")
                     continue
 
                 sheets = processor.process(template_df, filtered_table)
@@ -158,25 +162,44 @@ class CampaignCreatorOrchestrator:
             self.logger.error(f"Error processing campaigns: {str(e)}")
             return False, None, str(e)
 
-    def _filter_for_campaign(self, session_table: pd.DataFrame, campaign_type: str) -> pd.DataFrame:
+    def _ui_to_processor_name(self, ui_campaign_type: str) -> str:
+        """Convert UI campaign name to processor format.
+        
+        Args:
+            ui_campaign_type: Campaign name from UI (e.g., "Halloween Testing")
+            
+        Returns:
+            Processor format name (e.g., "halloween_testing")
+        """
+        mapping = {
+            "Halloween Testing": "halloween_testing",
+            "Halloween Phrase": "halloween_phrase", 
+            "Halloween Broad": "halloween_broad",
+            "Halloween Expanded": "halloween_expanded",
+            "Testing": "testing",
+            "Testing PT": "testing_pt",
+            "Phrase": "phrase",
+            "Broad": "broad",
+            "Expanded": "expanded"
+        }
+        return mapping.get(ui_campaign_type, ui_campaign_type.lower().replace(" ", "_"))
+
+    def _filter_for_campaign(self, session_table: pd.DataFrame, ui_campaign_type: str) -> pd.DataFrame:
         """Filter session table for specific campaign type.
         
         Args:
             session_table: Full session table
-            campaign_type: Campaign type to filter for
+            ui_campaign_type: UI campaign name (matches session table format)
             
         Returns:
             Filtered dataframe
         """
-        # Convert campaign_type to match session table format
-        campaign_name = campaign_type.replace("_", " ").title()
-        
-        # Filter by campaign type
-        filtered = session_table[session_table["Campaign type"] == campaign_name].copy()
+        # Filter by campaign type (session table stores UI names)
+        filtered = session_table[session_table["Campaign type"] == ui_campaign_type].copy()
         
         # Additional filtering based on campaign requirements
-        if "testing" in campaign_type.lower() or "phrase" in campaign_type.lower() or "broad" in campaign_type.lower():
-            if "pt" not in campaign_type.lower():
+        if "testing" in ui_campaign_type.lower() or "phrase" in ui_campaign_type.lower() or "broad" in ui_campaign_type.lower():
+            if "pt" not in ui_campaign_type.lower():
                 # Keyword campaigns - filter by sales and CVR
                 filtered = filtered[
                     (filtered["kw sales"] > 0) & (filtered["kw cvr"] > 0.08)

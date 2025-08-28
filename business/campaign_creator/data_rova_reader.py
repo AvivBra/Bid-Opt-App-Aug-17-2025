@@ -85,7 +85,13 @@ class DataRovaReader:
                 continue
             
             try:
-                cvr = float(row.get('Keyword Conversion', 0))
+                # Handle CVR as percentage string (e.g., "19.1%") or decimal
+                cvr_raw = row.get('Keyword Conversion', 0)
+                if isinstance(cvr_raw, str) and cvr_raw.endswith('%'):
+                    cvr = float(cvr_raw.rstrip('%')) / 100.0
+                else:
+                    cvr = float(cvr_raw)
+                
                 sales = float(row.get('Keyword Monthly Sales', 0))
                 
                 keyword_data[keyword] = {

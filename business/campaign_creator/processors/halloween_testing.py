@@ -66,14 +66,21 @@ class HalloweenTestingProcessor(BaseCampaignProcessor):
     def create_keyword_rows(self, template_df: pd.DataFrame, session_table: pd.DataFrame) -> List[Dict]:
         """Create keyword entity rows for Halloween Testing."""
         rows = []
+        processed_keywords = set()
+        
+        self.logger.info(f"Template has {len(template_df)} rows")
+        self.logger.info(f"Session table has {len(session_table)} rows")
         
         # Get unique campaign configurations from template
-        for _, template_row in template_df.iterrows():
+        for template_idx, template_row in template_df.iterrows():
             asin = str(template_row.get("My ASIN", ""))
             product_type = str(template_row.get("Product Type", ""))
             niche = str(template_row.get("Niche", ""))
             
+            self.logger.info(f"Template row {template_idx}: ASIN='{asin}', Product Type='{product_type}', Niche='{niche}'")
+            
             if not asin or not product_type or not niche:
+                self.logger.warning(f"Skipping template row {template_idx}: missing required fields")
                 continue
             
             campaign_id = self.get_campaign_id(asin, product_type, niche)
@@ -81,6 +88,7 @@ class HalloweenTestingProcessor(BaseCampaignProcessor):
             
             # Get bid value for this campaign
             bid = self.get_bid_from_template(template_row, self.bid_column, self.get_default_bid())
+            self.logger.info(f"Campaign ID: '{campaign_id}', Bid: {bid}")
             
             # Filter session table for this campaign's keywords
             campaign_keywords = session_table[
@@ -88,6 +96,8 @@ class HalloweenTestingProcessor(BaseCampaignProcessor):
                 (session_table["Product Type"] == product_type) &
                 (session_table["Niche"] == niche)
             ]
+            
+            self.logger.info(f"Found {len(campaign_keywords)} matching keywords for {asin}")
             
             # Create keyword row for each target that's not an ASIN
             for _, session_row in campaign_keywords.iterrows():
@@ -100,6 +110,8 @@ class HalloweenTestingProcessor(BaseCampaignProcessor):
                 # Check if keyword has required Data Rova info
                 kw_sales = session_row.get("kw sales", 0)
                 kw_cvr = session_row.get("kw cvr", 0)
+                
+                self.logger.info(f"Keyword '{target}': sales={kw_sales}, cvr={kw_cvr}")
                 
                 # Only include keywords meeting thresholds
                 if kw_sales > 0 and kw_cvr > 0.08:
@@ -117,7 +129,24 @@ class HalloweenTestingProcessor(BaseCampaignProcessor):
                     row["Bid"] = str(bid)
                     
                     rows.append(row)
+                    processed_keywords.add(target)
+                    self.logger.info(f"Added keyword '{target}' with Campaign ID '{campaign_id}'")
         
+        # Check for unprocessed keywords that might need fallback handling
+        all_session_keywords = set()
+        for _, session_row in session_table.iterrows():
+            target = str(session_row.get("target", ""))
+            if not target.startswith("B0") and target:
+                kw_sales = session_row.get("kw sales", 0)
+                kw_cvr = session_row.get("kw cvr", 0)
+                if kw_sales > 0 and kw_cvr > 0.08:
+                    all_session_keywords.add(target)
+        
+        unprocessed = all_session_keywords - processed_keywords
+        if unprocessed:
+            self.logger.warning(f"Keywords not matched to any template row: {list(unprocessed)}")
+        
+        self.logger.info(f"Created {len(rows)} keyword rows from {len(processed_keywords)} unique keywords")
         return rows
 
     def _add_keyword_columns(self, df: pd.DataFrame, keyword_df: pd.DataFrame) -> pd.DataFrame:
