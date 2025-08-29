@@ -27,6 +27,9 @@ OPTIONAL_COLUMNS = [
 # Entity type to filter
 TARGET_ENTITY = "Campaign"
 
+# Portfolio names to exclude from empty portfolio optimization
+EXCLUDED_PORTFOLIO_NAMES = ["Paused", "Terminal"]
+
 # Columns to update in Portfolios sheet for empty portfolios
 PORTFOLIO_UPDATE_COLUMNS = {
     "Operation": "update",

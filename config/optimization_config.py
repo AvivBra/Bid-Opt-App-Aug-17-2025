@@ -286,6 +286,40 @@ EMPTY_PORTFOLIOS_CONFIG = {
     ]
 }
 
+# Campaigns without Portfolios optimization settings
+CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG = {
+    "name": "Campaigns w/o Portfolios",
+    "enabled": True,
+    "description": "Update campaigns without portfolios to assign them to a specific portfolio (84453417629173)",
+    # Required sheets for validation
+    "required_sheets": [
+        "Sponsored Products Campaigns"
+    ],
+    # Required columns for validation
+    "required_columns": [
+        "Entity", "Portfolio ID", "Operation", "Campaign ID"
+    ],
+    # Entity types to process
+    "target_entities": ["Campaign"],
+    # Processing configuration
+    "processing": {
+        "filter_entity": "Campaign", 
+        "update_operation": "update",
+        "target_portfolio_id": "84453417629173",
+        "highlight_color": "FFFF00"  # Yellow
+    },
+    # No helper columns for Campaigns without Portfolios
+    "helper_columns": {
+        "enabled": False,
+        "columns": []
+    },
+    # Output sheets
+    "output_sheets": [
+        "Sponsored Products Campaigns",
+        "Summary"
+    ]
+}
+
 # Future optimizations (TBC - To Be Configured)
 FUTURE_OPTIMIZATIONS = {
     "portfolio_bid": {
@@ -361,6 +395,7 @@ ALL_OPTIMIZATIONS = [
     BIDS_30_DAYS_CONFIG,  # Added Bids 30 Days
     BIDS_60_DAYS_CONFIG,  # Added Bids 60 Days
     EMPTY_PORTFOLIOS_CONFIG,  # Added Empty Portfolios
+    CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG,  # Added Campaigns without Portfolios
     *FUTURE_OPTIMIZATIONS.values(),
 ]
 
@@ -668,6 +703,9 @@ def get_optimization_config(optimization_name: str) -> Dict[str, Any]:
         
     if optimization_name.lower() == "empty portfolios":
         return EMPTY_PORTFOLIOS_CONFIG
+        
+    if optimization_name.lower() == "campaigns w/o portfolios":
+        return CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG
 
     # Check future optimizations
     for config in FUTURE_OPTIMIZATIONS.values():
@@ -698,6 +736,9 @@ def get_enabled_optimizations() -> List[Dict[str, Any]]:
         
     if EMPTY_PORTFOLIOS_CONFIG["enabled"]:
         enabled.append(EMPTY_PORTFOLIOS_CONFIG)
+        
+    if CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG["enabled"]:
+        enabled.append(CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG)
 
     for config in FUTURE_OPTIMIZATIONS.values():
         if config.get("enabled", False):

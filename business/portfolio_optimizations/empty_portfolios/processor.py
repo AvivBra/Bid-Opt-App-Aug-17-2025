@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Any
 import logging
-from .constants import PORTFOLIO_UPDATE_COLUMNS, SUCCESS_MESSAGES
+from .constants import PORTFOLIO_UPDATE_COLUMNS, SUCCESS_MESSAGES, EXCLUDED_PORTFOLIO_NAMES
 
 
 class EmptyPortfoliosProcessor:
@@ -40,6 +40,7 @@ class EmptyPortfoliosProcessor:
         # Step 2: Identify empty portfolios
         empty_portfolio_indices = []
         debug_info = []
+        excluded_count = 0
         
         for idx, row in portfolios_df.iterrows():
             portfolio_id = str(row["Portfolio ID"]).strip()
@@ -51,6 +52,11 @@ class EmptyPortfoliosProcessor:
             # Check if name is not numeric
             is_name_not_numeric = not self._is_numeric_string(portfolio_name)
             
+            # Check if portfolio name should be excluded
+            is_excluded = self._is_excluded_portfolio(portfolio_name)
+            if is_excluded:
+                excluded_count += 1
+            
             # Debug info for first 10 portfolios
             if len(debug_info) < 10:
                 debug_info.append({
@@ -58,10 +64,12 @@ class EmptyPortfoliosProcessor:
                     "name": portfolio_name,
                     "has_campaigns": not has_no_campaigns,
                     "name_is_numeric": not is_name_not_numeric,
-                    "will_be_empty": has_no_campaigns and is_name_not_numeric
+                    "is_excluded": is_excluded,
+                    "will_be_empty": has_no_campaigns and is_name_not_numeric and not is_excluded
                 })
             
-            if has_no_campaigns and is_name_not_numeric:
+            # Only consider empty if: no campaigns, non-numeric name, and not excluded
+            if has_no_campaigns and is_name_not_numeric and not is_excluded:
                 empty_portfolio_indices.append(idx)
                 self.empty_portfolios.append({
                     "id": portfolio_id,
@@ -71,9 +79,10 @@ class EmptyPortfoliosProcessor:
         # Log debug information (use print for immediate console output)
         print(f"\n=== EMPTY PORTFOLIOS DEBUG ===")
         print(f"Found {len(portfolios_with_campaigns)} portfolios with campaigns")
+        print(f"Excluded {excluded_count} portfolios (Paused/Terminal)")
         print(f"Portfolio analysis debug (first 10):")
         for info in debug_info:
-            print(f"  ID: {info['id']}, Name: '{info['name']}', Has Campaigns: {info['has_campaigns']}, Numeric Name: {info['name_is_numeric']}, Empty: {info['will_be_empty']}")
+            print(f"  ID: {info['id']}, Name: '{info['name']}', Has Campaigns: {info['has_campaigns']}, Numeric Name: {info['name_is_numeric']}, Excluded: {info['is_excluded']}, Empty: {info['will_be_empty']}")
         print(f"Found {len(empty_portfolio_indices)} empty portfolios")
         print(f"=== END DEBUG ===\n")
         
@@ -138,6 +147,15 @@ class EmptyPortfoliosProcessor:
             return True
         except (ValueError, TypeError):
             return False
+    
+    def _is_excluded_portfolio(self, portfolio_name: str) -> bool:
+        """Check if portfolio name should be excluded from optimization."""
+        if not portfolio_name:
+            return False
+        
+        # Check if portfolio name matches any excluded names (case-insensitive)
+        cleaned_name = str(portfolio_name).strip()
+        return cleaned_name in EXCLUDED_PORTFOLIO_NAMES
     
     def get_processing_stats(self) -> Dict[str, Any]:
         """Get processing statistics."""

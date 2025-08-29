@@ -47,11 +47,17 @@ class PortfolioState:
             # Optimization selection
             st.session_state.portfolio_selected_optimizations = []
             st.session_state.empty_portfolios_selected = False
+            st.session_state.campaigns_without_portfolios_selected = False
 
             # Empty Portfolios specific state
             st.session_state.empty_portfolios_found = 0
             st.session_state.empty_portfolios_renamed = 0
             st.session_state.empty_portfolios_results = None
+            
+            # Campaigns without Portfolios specific state
+            st.session_state.campaigns_without_portfolios_found = 0
+            st.session_state.campaigns_without_portfolios_updated = 0
+            st.session_state.campaigns_without_portfolios_results = None
 
             # Output files
             st.session_state.portfolio_working_file = None
@@ -135,6 +141,10 @@ class PortfolioState:
         if st.session_state.get("empty_portfolios_selected", False):
             return self.has_any_bulk()
         
+        # For Campaigns without Portfolios, only need bulk file
+        if st.session_state.get("campaigns_without_portfolios_selected", False):
+            return self.has_any_bulk()
+        
         # For future optimizations, might need different requirements
         return self.has_any_bulk()
 
@@ -174,6 +184,15 @@ class PortfolioState:
                 st.session_state.empty_portfolios_renamed = output_data["empty_portfolios_renamed"]
             if "empty_portfolios_results" in output_data:
                 st.session_state.empty_portfolios_results = output_data["empty_portfolios_results"]
+        
+        # Save Campaigns without Portfolios specific results
+        if st.session_state.get("campaigns_without_portfolios_selected", False):
+            if "campaigns_without_portfolios_found" in output_data:
+                st.session_state.campaigns_without_portfolios_found = output_data["campaigns_without_portfolios_found"]
+            if "campaigns_without_portfolios_updated" in output_data:
+                st.session_state.campaigns_without_portfolios_updated = output_data["campaigns_without_portfolios_updated"]
+            if "campaigns_without_portfolios_results" in output_data:
+                st.session_state.campaigns_without_portfolios_results = output_data["campaigns_without_portfolios_results"]
 
     def set_error(self, error_msg: str) -> None:
         """Set processing error state."""
@@ -185,7 +204,7 @@ class PortfolioState:
         keys_to_preserve = ["current_page", "page", "portfolio_state_initialized"]
 
         # Clear all portfolio-specific keys
-        portfolio_keys = [k for k in st.session_state.keys() if k.startswith("portfolio_") or k.startswith("empty_portfolios_")]
+        portfolio_keys = [k for k in st.session_state.keys() if k.startswith("portfolio_") or k.startswith("empty_portfolios_") or k.startswith("campaigns_without_portfolios_")]
         
         for key in portfolio_keys:
             if key not in keys_to_preserve:
