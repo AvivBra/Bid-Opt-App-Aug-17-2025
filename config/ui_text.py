@@ -7,9 +7,9 @@ WELCOME_SUBTITLE = (
     "Upload your Template and Bulk files to get started with optimization."
 )
 
-# Campaign Optimizer titles
-CAMPAIGN_APP_TITLE = "CAMPAIGN OPTIMIZER"
-CAMPAIGN_WELCOME_MESSAGE = "Welcome to Campaign Optimizer"
+# Campaign Creator titles
+CAMPAIGN_APP_TITLE = "CAMPAIGN CREATOR"
+CAMPAIGN_WELCOME_MESSAGE = "Welcome to Campaign Creator"
 CAMPAIGN_WELCOME_SUBTITLE = (
     "Upload your Template file to create new campaigns bulk file."
 )

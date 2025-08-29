@@ -131,3 +131,72 @@ class EmptyPortfoliosOrchestrator:
             "and assigns them numeric names for easy identification. It updates the "
             "Portfolio Name to the smallest available number and marks them for update."
         )
+    
+    def run(
+        self,
+        bulk_data: Dict[str, pd.DataFrame],
+        combined_mode: bool = True
+    ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
+        """
+        Standardized run method for factory integration.
+        
+        Args:
+            bulk_data: Dictionary with sheet names as keys and DataFrames as values
+            combined_mode: Whether this is running in combined mode (for consistency)
+            
+        Returns:
+            Tuple of (processed_dataframe, processing_details)
+        """
+        try:
+            # Use the existing run_optimization method
+            success, message, output_bytes = self.run_optimization(bulk_data)
+            
+            # Convert to standard return format
+            if success and output_bytes:
+                # Parse the output to extract DataFrame
+                from io import BytesIO
+                output_file = BytesIO(output_bytes)
+                sheets = pd.read_excel(output_file, sheet_name=None)
+                output_file.seek(0)
+                
+                # Get the main processed sheet (Sponsored Products Campaigns or Portfolios)
+                processed_df = None
+                if "Sponsored Products Campaigns" in sheets:
+                    processed_df = sheets["Sponsored Products Campaigns"]
+                elif "Portfolios" in sheets:
+                    processed_df = sheets["Portfolios"]
+                
+                # Build details structure
+                details = {
+                    "summary": {
+                        "success": True,
+                        "message": message
+                    },
+                    "processing": self.get_statistics(),
+                    "output_file": BytesIO(output_bytes)  # Include for backward compatibility
+                }
+                
+                return processed_df, details
+            else:
+                details = {
+                    "summary": {
+                        "success": False,
+                        "message": message
+                    },
+                    "processing": {},
+                    "error": message
+                }
+                return None, details
+                
+        except Exception as e:
+            error_msg = f"Empty Portfolios optimization failed: {str(e)}"
+            self.logger.error(error_msg)
+            details = {
+                "summary": {
+                    "success": False,
+                    "message": error_msg
+                },
+                "processing": {},
+                "error": error_msg
+            }
+            return None, details

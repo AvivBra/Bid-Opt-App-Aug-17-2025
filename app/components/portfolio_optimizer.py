@@ -46,18 +46,28 @@ class PortfolioOptimizerPage:
                 unsafe_allow_html=True,
             )
 
-            # Optimization checkboxes - Allow multiple selections
-            empty_portfolios = st.checkbox(
-                "Empty Portfolios",
-                value=False,
-                key="empty_portfolios_selection",
-            )
+            # Dynamic optimization checkboxes - Factory-based discovery
+            from business.portfolio_optimizations.factory import get_portfolio_optimization_factory
             
-            campaigns_without_portfolios = st.checkbox(
-                "Campaigns w/o Portfolios",
-                value=False,
-                key="campaigns_without_portfolios_selection",
-            )
+            factory = get_portfolio_optimization_factory()
+            available_optimizations = factory.get_enabled_optimizations()
+            
+            # Generate checkboxes for each available optimization
+            selected_optimizations = {}
+            for opt_name, opt_info in available_optimizations.items():
+                display_name = opt_info.get("display_name", opt_name)
+                
+                selected = st.checkbox(
+                    display_name,
+                    value=False,
+                    key=f"{opt_name}_selection",
+                    help=f"{opt_info.get('metadata', {}).get('description', f'Run {display_name} optimization')}"
+                )
+                
+                selected_optimizations[opt_name] = selected
+                
+                # Store in session state for processing
+                st.session_state[f"{opt_name}_selected"] = selected
 
             st.markdown(
                 """
@@ -145,7 +155,7 @@ class PortfolioOptimizerPage:
 
             # Check if files are ready
             files_ready = st.session_state.get("portfolio_bulk_60_uploaded", False)
-            any_optimization_selected = empty_portfolios or campaigns_without_portfolios
+            any_optimization_selected = any(selected_optimizations.values())
 
             # Process button
             if st.button(
@@ -157,15 +167,14 @@ class PortfolioOptimizerPage:
                 if files_ready and any_optimization_selected:
                     st.session_state.portfolio_processing_started = True
                     st.session_state.portfolio_processing_status = "processing"
-                    st.session_state.empty_portfolios_selected = empty_portfolios
-                    st.session_state.campaigns_without_portfolios_selected = campaigns_without_portfolios
+                    # Note: Individual optimization selections are already stored in session state by the dynamic checkboxes
                     
                     # Show which optimizations are running
                     selected_opts = []
-                    if empty_portfolios:
-                        selected_opts.append("Empty Portfolios")
-                    if campaigns_without_portfolios:
-                        selected_opts.append("Campaigns w/o Portfolios")
+                    for opt_name, selected in selected_optimizations.items():
+                        if selected:
+                            display_name = factory.get_display_name(opt_name)
+                            selected_opts.append(display_name)
                     
                     self.logger.info(f"Starting processing with optimizations: {selected_opts}")
                     self.logger.debug(f"Files ready: {files_ready}, Any selected: {any_optimization_selected}")
@@ -212,129 +221,142 @@ class PortfolioOptimizerPage:
                         all_sheets = {"Sponsored Products Campaigns": bulk_df}
                     progress_bar.progress(20)
                     
-                    # Import orchestrators
-                    from business.portfolio_optimizations.empty_portfolios.orchestrator import EmptyPortfoliosOrchestrator
-                    from business.portfolio_optimizations.campaigns_without_portfolios.orchestrator import CampaignsWithoutPortfoliosOrchestrator
+                    # Initialize factory and results manager
+                    from business.portfolio_optimizations.factory import get_portfolio_optimization_factory
+                    from business.portfolio_optimizations.results_manager import PortfolioOptimizationResultsManager
                     from io import BytesIO
                     
-                    output_data = {}
-                    combined_results = []
+                    factory = get_portfolio_optimization_factory()
+                    results_manager = PortfolioOptimizationResultsManager()
                     
-                    progress_bar.progress(30)
+                    # Get selected optimizations from session state
+                    selected_opts = []
+                    for opt_name in factory.get_enabled_optimizations().keys():
+                        if st.session_state.get(f"{opt_name}_selected", False):
+                            selected_opts.append(opt_name)
                     
-                    # Process Empty Portfolios if selected
-                    if st.session_state.get("empty_portfolios_selected", False):
-                        self.logger.info("Starting Empty Portfolios optimization")
-                        st.info("Processing Empty Portfolios optimization...")
+                    if not selected_opts:
+                        self.logger.warning("No optimizations selected")
+                        st.warning("No optimizations selected. Please select at least one optimization.")
+                        st.session_state.portfolio_processing_status = "error"
+                        st.rerun()
+                        return
+                    
+                    self.logger.info(f"Processing {len(selected_opts)} selected optimizations: {selected_opts}")
+                    
+                    progress_step = 60 / len(selected_opts) if selected_opts else 0
+                    current_progress = 30
+                    
+                    # Process each selected optimization
+                    for i, opt_name in enumerate(selected_opts):
+                        display_name = factory.get_display_name(opt_name)
+                        self.logger.info(f"Starting {display_name} optimization")
+                        st.info(f"Processing {display_name} optimization...")
                         
                         try:
-                            empty_orchestrator = EmptyPortfoliosOrchestrator()
-                            self.logger.debug("EmptyPortfoliosOrchestrator instantiated")
+                            # Create orchestrator instance
+                            orchestrator = factory.create_optimization(opt_name)
+                            if orchestrator is None:
+                                self.logger.error(f"Failed to create orchestrator for {opt_name}")
+                                st.error(f"Failed to initialize {display_name} optimization")
+                                continue
                             
-                            # Use all sheets for Empty Portfolios (needs both Portfolios and Campaigns sheets)
-                            self.logger.debug(f"Calling run_optimization with data: {list(all_sheets.keys())}")
+                            self.logger.debug(f"{display_name} orchestrator instantiated")
                             
-                            success, message, output_bytes = empty_orchestrator.run_optimization(all_sheets)
-                            
-                            self.logger.info(f"Empty Portfolios result: success={success}")
-                            self.logger.debug(f"Message: {message}")
-                            self.logger.debug(f"Output bytes length: {len(output_bytes) if output_bytes else 0}")
-                            
-                            if success and output_bytes:
-                                from io import BytesIO
-                                output_file = BytesIO(output_bytes)
-                                combined_results.append({
-                                    "type": "empty_portfolios", 
-                                    "output_file": output_file, 
-                                    "message": message
-                                })
-                                output_data["output_file"] = output_file
-                                self.logger.info("Empty Portfolios completed successfully")
-                                st.success(message)
-                            else:
-                                self.logger.error(f"Empty Portfolios failed: {message}")
-                                st.error(f"Empty Portfolios processing failed: {message}")
-                        except Exception as e:
-                            self.logger.error(f"Empty Portfolios exception: {str(e)}")
-                            import traceback
-                            self.logger.debug(f"Empty Portfolios traceback: {traceback.format_exc()}")
-                            st.error(f"Empty Portfolios error: {str(e)}")
-                    
-                    progress_bar.progress(60)
-                    
-                    # Process Campaigns without Portfolios if selected
-                    if st.session_state.get("campaigns_without_portfolios_selected", False):
-                        self.logger.info("Starting Campaigns without Portfolios optimization")
-                        st.info("Processing Campaigns w/o Portfolios optimization...")
-                        
-                        try:
-                            campaigns_orchestrator = CampaignsWithoutPortfoliosOrchestrator()
-                            self.logger.debug("CampaignsWithoutPortfoliosOrchestrator instantiated")
-                            
-                            # Use all sheets for Campaigns w/o Portfolios (mainly needs Campaigns sheet)
+                            # Run optimization with standardized interface
                             self.logger.debug(f"Calling run with data: {list(all_sheets.keys())}")
+                            processed_df, processing_details = orchestrator.run(all_sheets, combined_mode=True)
                             
-                            # Pass combined_with_empty_portfolios=True to get full DataFrame with all columns
-                            processed_df, processing_details = campaigns_orchestrator.run(all_sheets, combined_with_empty_portfolios=True)
-                            
-                            self.logger.info(f"Campaigns w/o Portfolios result: DataFrame is not None: {processed_df is not None}")
+                            self.logger.info(f"{display_name} result: DataFrame is not None: {processed_df is not None}")
                             if processed_df is not None:
                                 self.logger.debug(f"Processed DataFrame: {len(processed_df)} rows")
                             self.logger.debug(f"Processing details: {processing_details}")
                             
+                            # Determine result type based on optimization
+                            result_type = "portfolios" if "portfolios" in opt_name.lower() else "campaigns"
+                            
+                            # Add result to results manager
+                            results_manager.add_result(
+                                optimization_name=opt_name,
+                                processed_df=processed_df,
+                                details=processing_details,
+                                result_type=result_type
+                            )
+                            
                             if processed_df is not None:
-                                # Store the DataFrame directly for combined file creation
-                                combined_results.append({
-                                    "type": "campaigns_without_portfolios",
-                                    "processed_df": processed_df,
-                                    "details": processing_details
-                                })
-                                
-                                # Also generate output file for individual download
-                                from io import BytesIO
-                                output_file = BytesIO()
-                                with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                                    processed_df.to_excel(writer, sheet_name='Sponsored Products Campaigns', index=False)
-                                output_file.seek(0)
-                                output_data["output_file"] = output_file
-                                self.logger.info("Campaigns w/o Portfolios completed successfully")
-                                st.success("Campaigns w/o Portfolios processing completed!")
+                                self.logger.info(f"{display_name} completed successfully")
+                                st.success(f"{display_name} processing completed!")
                             else:
-                                self.logger.error("Campaigns w/o Portfolios returned None DataFrame")
-                                st.error("Campaigns w/o Portfolios processing failed")
+                                self.logger.error(f"{display_name} returned None DataFrame")
+                                st.error(f"{display_name} error: No data returned")
+                                
                         except Exception as e:
-                            self.logger.error(f"Campaigns w/o Portfolios exception: {str(e)}")
+                            self.logger.error(f"{display_name} exception: {str(e)}")
                             import traceback
-                            self.logger.debug(f"Campaigns w/o Portfolios traceback: {traceback.format_exc()}")
-                            st.error(f"Campaigns w/o Portfolios error: {str(e)}")
+                            self.logger.debug(f"{display_name} traceback: {traceback.format_exc()}")
+                            st.error(f"{display_name} error: {str(e)}")
+                            
+                            # Add failed result to manager
+                            results_manager.add_result(
+                                optimization_name=opt_name,
+                                processed_df=None,
+                                details={"error": str(e), "summary": {"success": False, "message": f"Failed: {str(e)}"}}
+                            )
+                        
+                        # Update progress
+                        current_progress += progress_step
+                        progress_bar.progress(int(current_progress))
                     
                     progress_bar.progress(90)
                     
-                    # Create combined output file from all optimization results
-                    self.logger.debug(f"File combination: combined_results count = {len(combined_results)}")
-                    
-                    if combined_results:
+                    # Create combined output using results manager
+                    if results_manager.has_any_successful_results():
                         self.logger.info("Creating combined output file from multiple optimizations")
                         try:
-                            combined_file = self._create_combined_output_file(combined_results, all_sheets)
+                            combined_file, summary_details = results_manager.create_combined_output(all_sheets)
+                            
                             if combined_file:
-                                st.session_state.portfolio_working_file = combined_file
+                                st.session_state.portfolio_working_file = combined_file.getvalue()
                                 st.session_state.portfolio_output_generated = True
-                                self.logger.info(f"Combined output file created successfully ({len(combined_results)} optimization(s))")
-                                st.info(f"✅ Combined output file created successfully! ({len(combined_results)} optimization(s) completed)")
+                                
+                                # Log summary
+                                successful_count = summary_details.get("successful_optimizations", 0)
+                                total_count = summary_details.get("total_optimizations", 0)
+                                campaigns_updated = summary_details.get("campaigns_updated", 0)
+                                portfolios_updated = summary_details.get("portfolios_updated", 0)
+                                
+                                self.logger.info(f"Combined output file created successfully: {successful_count}/{total_count} optimizations")
+                                self.logger.info(f"Updates: {campaigns_updated} campaigns, {portfolios_updated} portfolios")
+                                
+                                # Show success message
+                                success_msg = f"✅ Combined output file created successfully! ({successful_count}/{total_count} optimizations completed)"
+                                if campaigns_updated > 0:
+                                    success_msg += f"\n📊 Updated {campaigns_updated} campaigns"
+                                if portfolios_updated > 0:
+                                    success_msg += f"\n📁 Updated {portfolios_updated} portfolios"
+                                
+                                st.info(success_msg)
                             else:
-                                self.logger.error("Failed to create combined output file")
-                                st.error("Failed to create combined output file")
+                                error_msg = summary_details.get("error", "Unknown error creating combined file")
+                                self.logger.error(f"Failed to create combined output file: {error_msg}")
+                                st.error(f"Failed to create combined output file: {error_msg}")
                         except Exception as e:
                             self.logger.error(f"Error creating combined file: {str(e)}")
                             import traceback
-                            self.logger.debug(f"Combined file creation traceback: {traceback.format_exc()}")
+                            self.logger.debug(f"Combined file traceback: {traceback.format_exc()}")
                             st.error(f"Error creating combined file: {str(e)}")
                     else:
-                        self.logger.warning("No optimizations in combined_results")
-                        st.warning("⚠️ No optimizations were processed successfully")
+                        failed_opts = results_manager.get_failed_optimizations()
+                        self.logger.warning(f"No successful optimizations to combine. Failed: {len(failed_opts)}")
+                        
+                        error_msg = "No optimizations completed successfully. No output file generated."
+                        if failed_opts:
+                            error_details = "\n".join([f"• {name}: {msg}" for name, msg in failed_opts])
+                            error_msg += f"\n\nFailed optimizations:\n{error_details}"
+                        
+                        st.error(error_msg)
                     
-                    # Final session state check
+                    # Final processing steps
                     has_working_file = st.session_state.get("portfolio_working_file") is not None
                     self.logger.info(f"Final check - Working file in session state: {has_working_file}")
                     
@@ -400,107 +422,13 @@ class PortfolioOptimizerPage:
                         use_container_width=True,
                     )
                 else:
-                    st.error("No output file available. Please process files first.")
+                    st.error("No output file available")
 
                 # Reset button
-                if st.button("Reset", key="btn_reset_portfolio", use_container_width=True):
-                    # Clear all portfolio-specific state
-                    keys_to_clear = [
-                        "portfolio_bulk_60_file",
-                        "portfolio_bulk_60_uploaded",
-                        "portfolio_processing_started",
-                        "portfolio_processing_status",
-                        "portfolio_output_generated",
-                    ]
+                if st.button("Start New Optimization", key="btn_new_portfolio", use_container_width=True):
+                    # Clear relevant session state
+                    keys_to_clear = [key for key in st.session_state.keys() if key.startswith("portfolio_")]
                     for key in keys_to_clear:
-                        if key in st.session_state:
+                        if key != "portfolio_optimizer_logger":  # Keep the logger
                             del st.session_state[key]
                     st.rerun()
-    
-    def _create_combined_output_file(self, combined_results, all_sheets):
-        """
-        Create a combined Excel file from all optimization results.
-        
-        Args:
-            combined_results: List of results from different optimizations
-            all_sheets: Original Excel sheets from input file
-            
-        Returns:
-            BytesIO object with combined Excel file
-        """
-        from io import BytesIO
-        from config.optimization_config import apply_text_format_before_write
-        
-        try:
-            self.logger.debug("Starting combined file creation")
-            
-            # START WITH ENTITY=CAMPAIGN FILTERED DATA - only include Campaign entities
-            if "Sponsored Products Campaigns" in all_sheets:
-                campaigns_sheet_data = all_sheets["Sponsored Products Campaigns"][all_sheets["Sponsored Products Campaigns"]["Entity"] == "Campaign"].copy()
-            else:
-                campaigns_sheet_data = None
-            portfolios_sheet_data = all_sheets["Portfolios"].copy() if "Portfolios" in all_sheets else None
-            
-            self.logger.debug(f"Starting with original data: {len(campaigns_sheet_data) if campaigns_sheet_data is not None else 0} campaigns, {len(portfolios_sheet_data) if portfolios_sheet_data is not None else 0} portfolios")
-            
-            # Apply optimization results using direct DataFrames
-            for result in combined_results:
-                result_type = result.get("type", "unknown")
-                
-                if result_type == "empty_portfolios":
-                    self.logger.debug("Processing Empty Portfolios result")
-                    
-                    # Extract portfolios sheet from Empty Portfolios result
-                    if "output_file" in result:
-                        try:
-                            result["output_file"].seek(0)
-                            empty_sheets = pd.read_excel(result["output_file"], sheet_name=None)
-                            result["output_file"].seek(0)
-                            
-                            # Update portfolios sheet with any changes from Empty Portfolios
-                            if "Portfolios" in empty_sheets:
-                                portfolios_sheet_data = empty_sheets["Portfolios"]
-                                self.logger.debug(f"Updated Portfolios sheet from Empty Portfolios: {len(portfolios_sheet_data)} rows")
-                        except Exception as e:
-                            self.logger.warning(f"Could not extract sheets from Empty Portfolios result: {e}")
-                
-                elif result_type == "campaigns_without_portfolios":
-                    self.logger.debug("Processing Campaigns w/o Portfolios result")
-                    
-                    # Use the direct processed DataFrame - this contains all optimizations on full data!
-                    if "processed_df" in result and campaigns_sheet_data is not None:
-                        processed_df = result["processed_df"]
-                        self.logger.debug(f"Using processed DataFrame with {len(processed_df)} rows")
-                        
-                        # The processed_df contains optimizations applied to full data, but we need only Entity=Campaign
-                        campaigns_sheet_data = processed_df[processed_df["Entity"] == "Campaign"].copy()
-                        self.logger.info(f"Applied Campaigns w/o Portfolios optimizations: {len(campaigns_sheet_data)} campaigns (Entity=Campaign filtered)")
-            
-            self.logger.debug(f"Final data: {len(campaigns_sheet_data) if campaigns_sheet_data is not None else 0} campaigns, {len(portfolios_sheet_data) if portfolios_sheet_data is not None else 0} portfolios")
-            
-            # Create combined Excel file
-            output_file = BytesIO()
-            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                # Write Sponsored Products Campaigns sheet (required)
-                if campaigns_sheet_data is not None:
-                    # Apply text formatting to prevent scientific notation
-                    campaigns_formatted = apply_text_format_before_write(campaigns_sheet_data)
-                    campaigns_formatted.to_excel(writer, sheet_name='Sponsored Products Campaigns', index=False)
-                    self.logger.debug(f"Wrote Campaigns sheet with {len(campaigns_sheet_data)} rows")
-                
-                # Write Portfolios sheet (if available)
-                if portfolios_sheet_data is not None:
-                    # Apply text formatting to prevent scientific notation
-                    portfolios_formatted = apply_text_format_before_write(portfolios_sheet_data)
-                    portfolios_formatted.to_excel(writer, sheet_name='Portfolios', index=False)
-                    self.logger.debug(f"Wrote Portfolios sheet with {len(portfolios_sheet_data)} rows")
-            
-            output_file.seek(0)
-            self.logger.info("Combined Excel file created successfully")
-            return output_file
-            
-        except Exception as e:
-            self.logger.error(f"Error in _create_combined_output_file: {str(e)}")
-            import traceback
-            self.logger.debug(f"Full traceback: {traceback.format_exc()}")
-            return None

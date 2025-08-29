@@ -1,4 +1,4 @@
-"""Campaign Optimizer page with validation logic."""
+"""Campaign Creator page with validation logic."""
 
 import streamlit as st
 import pandas as pd
@@ -13,10 +13,10 @@ from data.validators.campaign_validators import CampaignTemplateValidator
 
 
 class CampaignOptimizerPage:
-    """Main page for Campaign Optimizer functionality."""
+    """Main page for Campaign Creator functionality."""
 
     def __init__(self):
-        """Initialize Campaign Optimizer page."""
+        """Initialize Campaign Creator page."""
         self.validation = CampaignValidation()
         self.data_dive_reader = DataDiveReader()
         self.data_rova_reader = DataRovaReader()
@@ -25,7 +25,7 @@ class CampaignOptimizerPage:
         self.template_validator = CampaignTemplateValidator()
 
     def render(self):
-        """Render the complete Campaign Optimizer page."""
+        """Render the complete Campaign Creator page."""
 
         # Import and apply custom CSS
         from app.ui.layout import apply_custom_css
@@ -38,7 +38,7 @@ class CampaignOptimizerPage:
         # TITLE IN SECOND COLUMN FROM LEFT
         with col2:
             st.markdown(
-                "<h1 style='text-align: left;'>Campaign Optimizer</h1>",
+                "<h1 style='text-align: left;'>Campaign Creator</h1>",
                 unsafe_allow_html=True,
             )
 

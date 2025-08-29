@@ -23,14 +23,14 @@ class CampaignsWithoutPortfoliosOrchestrator:
     def run(
         self,
         bulk_data: Dict[str, pd.DataFrame],
-        combined_with_empty_portfolios: bool = False
+        combined_mode: bool = True
     ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
         """
         Run the complete Campaigns Without Portfolios optimization.
         
         Args:
             bulk_data: Dictionary with sheet names as keys and DataFrames as values
-            combined_with_empty_portfolios: Whether this is running with Empty Portfolios
+            combined_mode: Whether this is running in combined mode (standardized parameter)
             
         Returns:
             Tuple of (processed_dataframe, processing_details)
@@ -64,7 +64,7 @@ class CampaignsWithoutPortfoliosOrchestrator:
             self.logger.info("Processing campaigns without portfolios...")
             processed_data = self.processor.process(
                 cleaned_data,
-                combined_with_empty_portfolios
+                combined_mode
             )
             
             # Get processing statistics
@@ -72,7 +72,7 @@ class CampaignsWithoutPortfoliosOrchestrator:
             
             # Step 4: Format output
             self.logger.info("Formatting output...")
-            if combined_with_empty_portfolios:
+            if combined_mode:
                 # If combined, return processed data for merging
                 output_df = processed_data["Sponsored Products Campaigns Full"]
             else:

@@ -31,7 +31,7 @@ def main():
     # Sidebar navigation
     page_selection = st.sidebar.radio(
         "",
-        ["Bid Optimizer", "Campaign Optimizer", "Portfolio Optimizer"],
+        ["Bid Optimizer", "Portfolio Optimizer", "Campaign Creator"],
         index=0
     )
 
@@ -39,11 +39,11 @@ def main():
     if page_selection == "Bid Optimizer":
         page = BidOptimizerPage()
         page.render()
-    elif page_selection == "Campaign Optimizer":
-        page = CampaignOptimizerPage()
-        page.render()
     elif page_selection == "Portfolio Optimizer":
         page = PortfolioOptimizerPage()
+        page.render()
+    elif page_selection == "Campaign Creator":
+        page = CampaignOptimizerPage()
         page.render()
 
 

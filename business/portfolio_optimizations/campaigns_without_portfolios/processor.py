@@ -18,14 +18,14 @@ class CampaignsWithoutPortfoliosProcessor:
     def process(
         self,
         cleaned_data: Dict[str, pd.DataFrame],
-        combined_with_empty_portfolios: bool = False
+        combined_mode: bool = False
     ) -> Dict[str, pd.DataFrame]:
         """
         Process the optimization logic.
         
         Args:
             cleaned_data: Dictionary with cleaned DataFrames
-            combined_with_empty_portfolios: Whether running with Empty Portfolios
+            combined_mode: Whether running in combined mode
             
         Returns:
             Dictionary with processed DataFrames

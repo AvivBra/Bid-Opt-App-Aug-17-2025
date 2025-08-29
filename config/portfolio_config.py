@@ -3,15 +3,22 @@
 # Portfolio Optimizer settings
 PORTFOLIO_OPTIMIZER_CONFIG = {
     "name": "Portfolio Optimizer",
-    "version": "1.0.0",
-    "description": "Optimize portfolio structure and management",
-    "enabled_optimizations": ["Empty Portfolios", "Campaigns w/o Portfolios"],
+    "version": "2.0.0",
+    "description": "Factory-based portfolio optimization system with dynamic optimization discovery",
+    "architecture": "factory_pattern",
+    "enabled_optimizations": ["empty_portfolios", "campaigns_without_portfolios"],
     "future_optimizations": [
-        "Portfolio Budget Optimization",
-        "Portfolio Performance Analysis",
-        "Portfolio Consolidation",
-        "Portfolio Campaign Distribution"
-    ]
+        "portfolio_budget_optimization",
+        "portfolio_performance_analysis", 
+        "portfolio_consolidation",
+        "portfolio_campaign_distribution"
+    ],
+    "factory_config": {
+        "auto_discovery": True,
+        "base_path": "business/portfolio_optimizations",
+        "orchestrator_pattern": "*Orchestrator",
+        "required_methods": ["run", "get_description"]
+    }
 }
 
 # Empty Portfolios optimization configuration
@@ -19,6 +26,13 @@ EMPTY_PORTFOLIOS_CONFIG = {
     "name": "Empty Portfolios",
     "enabled": True,
     "description": "Identify and rename empty portfolios with numeric names",
+    "display_name": "Empty Portfolios",
+    "category": "portfolio_management",
+    "result_type": "portfolios",
+    "priority": 1,
+    "dependencies": [],
+    "conflicts": [],
+    "help_text": "Finds portfolios that don't contain any campaigns and assigns them sequential numeric names (1, 2, 3, etc.) for easy identification and management.",
     
     # Required sheets for validation
     "required_sheets": [
@@ -105,6 +119,13 @@ CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG = {
     "name": "Campaigns w/o Portfolios",
     "enabled": True,
     "description": "Update campaigns without portfolios to assign them to a specific portfolio",
+    "display_name": "Campaigns w/o Portfolios",
+    "category": "campaign_management", 
+    "result_type": "campaigns",
+    "priority": 2,
+    "dependencies": [],
+    "conflicts": [],
+    "help_text": "Identifies campaigns that are not assigned to any portfolio and automatically assigns them to the specified target portfolio (ID: 84453417629173) with update operation.",
     
     # Required sheets for validation
     "required_sheets": [
@@ -196,3 +217,36 @@ LOGGING_CONFIG = {
     "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "file": "portfolio_optimizer.log"
 }
+
+# Optimization Registry - maps internal names to configurations
+OPTIMIZATION_REGISTRY = {
+    "empty_portfolios": EMPTY_PORTFOLIOS_CONFIG,
+    "campaigns_without_portfolios": CAMPAIGNS_WITHOUT_PORTFOLIOS_CONFIG
+}
+
+# Helper functions for factory integration
+def get_optimization_config(optimization_name: str) -> dict:
+    """Get configuration for a specific optimization."""
+    return OPTIMIZATION_REGISTRY.get(optimization_name, {})
+
+def get_enabled_optimizations() -> dict:
+    """Get all enabled optimizations."""
+    return {
+        name: config for name, config in OPTIMIZATION_REGISTRY.items()
+        if config.get("enabled", True)
+    }
+
+def get_optimization_display_name(optimization_name: str) -> str:
+    """Get display name for an optimization."""
+    config = get_optimization_config(optimization_name)
+    return config.get("display_name", optimization_name)
+
+def get_optimization_help_text(optimization_name: str) -> str:
+    """Get help text for an optimization."""
+    config = get_optimization_config(optimization_name)
+    return config.get("help_text", config.get("description", "No description available"))
+
+def get_optimization_category(optimization_name: str) -> str:
+    """Get category for an optimization."""
+    config = get_optimization_config(optimization_name)
+    return config.get("category", "general")
