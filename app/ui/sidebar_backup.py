@@ -26,6 +26,11 @@ def render_sidebar():
             disabled=True,
         )
 
+        # Portfolio Optimizer button
+        if st.button("Portfolio Optimizer", key="btn_portfolio", use_container_width=True):
+            st.session_state.current_page = "Portfolio Optimizer"
+            st.rerun()
+
         # Removed: st.markdown("---")
         # Removed: st.write("Current page:", st.session_state.current_page)
 

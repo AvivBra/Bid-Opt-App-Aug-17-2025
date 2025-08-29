@@ -3,10 +3,15 @@
 import streamlit as st
 from typing import Any, Optional
 import pandas as pd
+from app.state.portfolio_state import PortfolioState
 
 
 class SessionManager:
     """Manages Streamlit session state and data persistence."""
+    
+    def __init__(self):
+        """Initialize session manager."""
+        self.portfolio_state = PortfolioState()
     
     def initialize(self):
         """Initialize session state with default values."""
@@ -70,6 +75,9 @@ class SessionManager:
             st.session_state.working_file_data = None
         if 'clean_file_data' not in st.session_state:
             st.session_state.clean_file_data = None
+        
+        # Initialize portfolio optimizer state
+        self.portfolio_state.init()
     
     def clear_session(self):
         """Clear all session data (reset functionality)."""

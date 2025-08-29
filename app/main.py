@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.state.session_manager import SessionManager
 from app.components.bid_optimizer import BidOptimizerPage
 from app.components.campaign_optimizer import CampaignOptimizerPage
+from app.components.portfolio_optimizer import PortfolioOptimizerPage
 
 
 def main():
@@ -30,7 +31,7 @@ def main():
     # Sidebar navigation
     page_selection = st.sidebar.radio(
         "",
-        ["Bid Optimizer", "Campaign Optimizer"],
+        ["Bid Optimizer", "Campaign Optimizer", "Portfolio Optimizer"],
         index=0
     )
 
@@ -40,6 +41,9 @@ def main():
         page.render()
     elif page_selection == "Campaign Optimizer":
         page = CampaignOptimizerPage()
+        page.render()
+    elif page_selection == "Portfolio Optimizer":
+        page = PortfolioOptimizerPage()
         page.render()
 
 

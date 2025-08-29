@@ -4,6 +4,7 @@ import streamlit as st
 from app.ui.sidebar_backup import render_sidebar, get_current_page
 from app.ui.layout import apply_custom_css
 from app.pages.bid_optimizer import BidOptimizerPage
+from app.components.portfolio_optimizer import PortfolioOptimizerPage
 
 
 class Navigation:
@@ -13,6 +14,7 @@ class Navigation:
         self.pages = {
             "Bid Optimizer": BidOptimizerPage(),
             "Campaigns Optimizer": None,  # TBC - Phase 2+
+            "Portfolio Optimizer": PortfolioOptimizerPage(),
         }
 
     def render(self):

@@ -1,7 +1,7 @@
-# Bid Optimizer for Amazon Ads
+# Bid Optimizer & Portfolio Optimizer for Amazon Ads
 
 ## Overview
-An automated bid optimization system for Amazon Ads campaigns. The application processes bulk campaign data and automatically adjusts bids based on performance metrics.
+An automated optimization system for Amazon Ads campaigns and portfolios. The application processes bulk campaign data and automatically adjusts bids, plus optimizes portfolio management and structure.
 
 ## Installation
 
@@ -32,7 +32,9 @@ The application will open in your default browser at http://localhost:8501
 
 ## Usage
 
-### Step 1: Upload Files
+### Bid Optimizer
+
+#### Step 1: Upload Files
 1. Download the Template file using the "Download Template" button
 2. Fill in the Template with your portfolio data:
    - Portfolio Name
@@ -41,19 +43,37 @@ The application will open in your default browser at http://localhost:8501
 3. Upload the completed Template
 4. Upload your Bulk 60 file from Amazon Ads
 
-### Step 2: Select Optimization
+#### Step 2: Select Optimization
 - Currently, only "Zero Sales" optimization is available
 - Check the Zero Sales checkbox to enable it
 
-### Step 3: Process Files
+#### Step 3: Process Files
 - Click "Process Files" to start the optimization
 - Wait for processing to complete (10-30 seconds for typical files)
 
-### Step 4: Download Results
+#### Step 4: Download Results
 - Click "Download Working File" to get the optimized Excel file
 - The file contains two sheets:
   - Targeting: Optimized keywords and product targeting
   - Bidding Adjustment: Bidding adjustments (unchanged)
+
+### Portfolio Optimizer
+
+#### Step 1: Select Optimization
+- Currently, "Empty Portfolios" optimization is available
+- This identifies and renames empty portfolios with numeric names
+
+#### Step 2: Upload Files
+- Upload your Bulk 60 file from Amazon Ads
+- No template file required for Empty Portfolios optimization
+
+#### Step 3: Process Files
+- Click "Process Files" to start the optimization
+- Wait for processing to complete
+
+#### Step 4: Download Results
+- Click "Download Working File" to get the optimized file
+- Empty portfolios will be renamed with numeric identifiers
 
 ## File Structure
 
@@ -62,11 +82,14 @@ bid-optimizer/
 ├── app/                    # UI and navigation
 │   ├── main.py            # Entry point
 │   ├── navigation.py      # Sidebar navigation
+│   ├── components/        # UI components (bid, campaign, portfolio optimizers)
 │   ├── pages/             # Application pages
 │   ├── ui/                # UI components
 │   └── state/             # Session state management
 ├── business/              # Business logic
-│   ├── bid_optimizations/ # Optimization algorithms
+│   ├── bid_optimizations/ # Bid optimization algorithms
+│   ├── portfolio_optimizations/ # Portfolio optimization algorithms
+│   ├── campaign_creator/  # Campaign creation logic
 │   └── common/            # Shared business logic
 ├── data/                  # Data handling
 │   ├── readers/           # File readers
@@ -80,16 +103,19 @@ bid-optimizer/
 ## Features
 
 ### Phase 1 (Current)
-- ✅ Zero Sales Optimization
+- ✅ Zero Sales Optimization (Bid Optimizer)
+- ✅ Empty Portfolios Optimization (Portfolio Optimizer)
+- ✅ Campaign Creator (Campaign Optimizer)
 - ✅ Template file generation and validation
 - ✅ Bulk 60 file processing
 - ✅ Working file generation with bid adjustments
 - ✅ Dark mode UI
 - ✅ Session state management
+- ✅ Three-page navigation system
 
 ### Phase 2 (Planned)
-- ⏳ 13 additional optimization algorithms
-- ⏳ Campaigns Optimizer
+- ⏳ 13 additional bid optimization algorithms
+- ⏳ Additional portfolio optimization types
 - ⏳ Clean file generation
 - ⏳ Bulk 7/30 support
 - ⏳ Data Rova integration
