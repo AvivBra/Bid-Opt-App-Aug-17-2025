@@ -1,202 +1,111 @@
 """Orchestrator for Empty Portfolios optimization."""
 
 import pandas as pd
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Any, Optional
 import logging
-from io import BytesIO
-
 from .validator import EmptyPortfoliosValidator
 from .cleaner import EmptyPortfoliosCleaner
 from .processor import EmptyPortfoliosProcessor
 from .output_formatter import EmptyPortfoliosOutputFormatter
+from .constants import SUCCESS_MESSAGES, ERROR_MESSAGES
 
 
 class EmptyPortfoliosOrchestrator:
-    """Orchestrates the Empty Portfolios optimization process."""
-    
+    """Orchestrates the Empty Portfolios optimization workflow."""
+
     def __init__(self):
-        self.name = "Empty Portfolios"
         self.logger = logging.getLogger("empty_portfolios.orchestrator")
-        
-        # Initialize components
         self.validator = EmptyPortfoliosValidator()
         self.cleaner = EmptyPortfoliosCleaner()
         self.processor = EmptyPortfoliosProcessor()
-        self.formatter = EmptyPortfoliosOutputFormatter()
-        
-        # Processing details
-        self._validation_details = {}
-        self._cleaning_details = {}
-        self._processing_details = {}
-    
-    def run_optimization(
-        self,
-        bulk_data: Dict[str, pd.DataFrame]
-    ) -> Tuple[bool, str, Optional[bytes]]:
-        """
-        Run the complete Empty Portfolios optimization.
-        
-        Args:
-            bulk_data: Dictionary with sheet names as keys and DataFrames as values
-            
-        Returns:
-            Tuple of (success, message, output_bytes)
-        """
-        try:
-            # Step 1: Validation
-            self.logger.info("Starting validation...")
-            is_valid, validation_msg, validation_details = self.validator.validate(bulk_data)
-            self._validation_details = validation_details
-            
-            if not is_valid:
-                self.logger.error(f"Validation failed: {validation_msg}")
-                return False, validation_msg, None
-            
-            self.logger.info(f"Validation passed: {validation_msg}")
-            
-            # Step 2: Cleaning
-            self.logger.info("Starting data cleaning...")
-            cleaned_data, cleaning_details = self.cleaner.clean(bulk_data)
-            self._cleaning_details = cleaning_details
-            
-            self.logger.info(f"Cleaning complete: {cleaning_details['entity_campaign_count']} campaigns")
-            
-            # Step 3: Processing
-            self.logger.info("Starting optimization processing...")
-            processed_data = self.processor.process(cleaned_data)
-            self._processing_details = self.processor.get_processing_stats()
-            
-            empty_count = self._processing_details.get("empty_portfolios_count", 0)
-            self.logger.info(f"Processing complete: {empty_count} empty portfolios found")
-            
-            # Step 4: Generate output
-            self.logger.info("Generating output file...")
-            output_bytes = self._generate_output(processed_data)
-            
-            # Success message
-            success_msg = self._generate_success_message()
-            
-            return True, success_msg, output_bytes
-            
-        except Exception as e:
-            error_msg = f"Optimization error: {str(e)}"
-            self.logger.error(error_msg)
-            return False, error_msg, None
-    
-    def _generate_output(self, processed_data: Dict[str, pd.DataFrame]) -> bytes:
-        """Generate Excel output file."""
-        output = BytesIO()
-        
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Format and write output
-            self.formatter.format_output(processed_data, writer)
-        
-        output.seek(0)
-        return output.read()
-    
-    def _generate_success_message(self) -> str:
-        """Generate detailed success message."""
-        empty_count = self._processing_details.get("empty_portfolios_count", 0)
-        
-        if empty_count == 0:
-            return "✓ Processing complete. No empty portfolios found."
-        
-        msg_parts = [
-            f"✓ Processing complete",
-            f"✓ Found and updated {empty_count} empty portfolios",
-            f"✓ Assigned new numeric names (1-{empty_count})",
-            f"✓ Highlighted updated rows in yellow"
-        ]
-        
-        return "\n".join(msg_parts)
-    
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get processing statistics."""
-        return {
-            "validation_details": self._validation_details,
-            "cleaning_details": self._cleaning_details,
-            "processing_details": self._processing_details,
-            "optimization_name": self.name
-        }
-    
-    def get_required_columns(self) -> list:
-        """Get list of required columns."""
-        from .constants import REQUIRED_COLUMNS
-        return REQUIRED_COLUMNS
-    
-    def get_description(self) -> str:
-        """Get optimization description."""
-        return (
-            "Empty Portfolios optimization identifies portfolios without any campaigns "
-            "and assigns them numeric names for easy identification. It updates the "
-            "Portfolio Name to the smallest available number and marks them for update."
-        )
-    
+        self.output_formatter = EmptyPortfoliosOutputFormatter()
+
     def run(
-        self,
-        bulk_data: Dict[str, pd.DataFrame],
-        combined_mode: bool = True
+        self, bulk_data: Dict[str, pd.DataFrame], combined_mode: bool = True
     ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
         """
-        Standardized run method for factory integration.
-        
+        Run the complete Empty Portfolios optimization.
+
         Args:
             bulk_data: Dictionary with sheet names as keys and DataFrames as values
-            combined_mode: Whether this is running in combined mode (for consistency)
-            
+            combined_mode: Whether this is running in combined mode (standardized parameter)
+
         Returns:
             Tuple of (processed_dataframe, processing_details)
         """
+        details = {"validation": {}, "cleaning": {}, "processing": {}, "summary": {}}
+
         try:
-            # Use the existing run_optimization method
-            success, message, output_bytes = self.run_optimization(bulk_data)
-            
-            # Convert to standard return format
-            if success and output_bytes:
-                # Parse the output to extract DataFrame
-                from io import BytesIO
-                output_file = BytesIO(output_bytes)
-                sheets = pd.read_excel(output_file, sheet_name=None)
-                output_file.seek(0)
-                
-                # Get the main processed sheet (Sponsored Products Campaigns or Portfolios)
-                processed_df = None
-                if "Sponsored Products Campaigns" in sheets:
-                    processed_df = sheets["Sponsored Products Campaigns"]
-                elif "Portfolios" in sheets:
-                    processed_df = sheets["Portfolios"]
-                
-                # Build details structure
-                details = {
-                    "summary": {
-                        "success": True,
-                        "message": message
-                    },
-                    "processing": self.get_statistics(),
-                    "output_file": BytesIO(output_bytes)  # Include for backward compatibility
-                }
-                
-                return processed_df, details
-            else:
-                details = {
-                    "summary": {
-                        "success": False,
-                        "message": message
-                    },
-                    "processing": {},
-                    "error": message
-                }
+            # Step 1: Validation
+            self.logger.info("Starting validation...")
+            is_valid, validation_details = self.validator.validate(bulk_data)
+            details["validation"] = validation_details
+
+            if not is_valid:
+                self.logger.error("Validation failed")
+                details["summary"]["error"] = ERROR_MESSAGES["missing_columns"]
+                details["summary"]["success"] = False
                 return None, details
-                
+
+            self.logger.info(SUCCESS_MESSAGES["validation_passed"])
+
+            # Step 2: Cleaning
+            self.logger.info("Cleaning data...")
+            cleaned_data, cleaning_details = self.cleaner.clean(bulk_data)
+            details["cleaning"] = cleaning_details
+
+            # Step 3: Processing
+            self.logger.info("Processing campaigns without portfolios...")
+            processed_data = self.processor.process(cleaned_data, combined_mode)
+
+            # Get processing statistics
+            details["processing"] = self.processor.get_processing_stats()
+
+            # Step 4: Format output for combined mode
+            self.logger.info("Formatting output...")
+            if combined_mode:
+                # FIX: Return the full dataframe with ONLY the updated rows marked
+                # The processor already updated the full dataframe
+                output_df = processed_data["Sponsored Products Campaigns Full"]
+
+                # Store the updated indices in details for the results_manager
+                details["updated_indices"] = self.processor.get_updated_indices()
+
+                self.logger.info(
+                    f"Returning full DataFrame with {len(details['updated_indices'])} updated rows"
+                )
+            else:
+                # If standalone, format for direct output
+                output_df = self.output_formatter.format_output(processed_data)
+
+            # Summary
+            campaigns_updated = details["processing"].get("campaigns_updated", 0)
+            if campaigns_updated > 0:
+                details["summary"]["message"] = SUCCESS_MESSAGES[
+                    "campaigns_updated"
+                ].format(count=campaigns_updated)
+                self.logger.info(f"Successfully updated {campaigns_updated} campaigns")
+            else:
+                details["summary"]["message"] = SUCCESS_MESSAGES["no_campaigns_found"]
+                self.logger.info("No campaigns without portfolios found")
+
+            details["summary"]["success"] = True
+
+            return output_df, details
+
         except Exception as e:
-            error_msg = f"Empty Portfolios optimization failed: {str(e)}"
-            self.logger.error(error_msg)
-            details = {
-                "summary": {
-                    "success": False,
-                    "message": error_msg
-                },
-                "processing": {},
-                "error": error_msg
-            }
+            self.logger.error(f"Orchestration failed: {str(e)}")
+            details["summary"]["error"] = (
+                f"{ERROR_MESSAGES['processing_failed']}: {str(e)}"
+            )
+            details["summary"]["success"] = False
             return None, details
+
+    def get_updated_indices(self) -> list:
+        """
+        Get indices of rows that were updated.
+
+        Returns:
+            List of row indices that were modified
+        """
+        return self.processor.get_updated_indices()
