@@ -1,251 +1,124 @@
-"""Factory for Portfolio Optimization discovery and instantiation."""
+"""Factory for creating optimization strategies."""
 
-import importlib
-import pkgutil
-from typing import Dict, List, Type, Optional, Any
 import logging
-from pathlib import Path
-
-from .portfolio_base_optimization import PortfolioBaseOptimization
+from typing import Dict, List, Optional, Any
+from .contracts import OptimizationStrategy
+from .strategies import EmptyPortfoliosStrategy, CampaignsWithoutPortfoliosStrategy
+from .constants import OPTIMIZATION_ORDER
 
 
 class PortfolioOptimizationFactory:
-    """
-    Factory class for discovering and instantiating portfolio optimizations.
-    
-    Automatically discovers optimization modules and provides a unified interface
-    for creating optimization instances.
-    """
+    """Factory for creating and managing portfolio optimization strategies."""
     
     def __init__(self):
-        self.logger = logging.getLogger("portfolio_optimization.factory")
-        self._optimization_registry: Dict[str, Dict[str, Any]] = {}
-        self._discover_optimizations()
+        self.logger = logging.getLogger(__name__)
+        self._strategies = {}
+        self._register_strategies()
     
-    def _discover_optimizations(self) -> None:
-        """
-        Automatically discover all available optimization modules.
+    def _register_strategies(self):
+        """Register all available optimization strategies."""
+        # Register each strategy
+        strategies = [
+            EmptyPortfoliosStrategy(),
+            CampaignsWithoutPortfoliosStrategy()
+        ]
         
-        Looks for orchestrator.py files in subdirectories and registers them.
-        """
-        try:
-            base_path = Path(__file__).parent
-            self.logger.debug(f"Scanning for optimizations in: {base_path}")
-            
-            # Scan each subdirectory for orchestrator modules
-            for item in base_path.iterdir():
-                if item.is_dir() and not item.name.startswith('__'):
-                    orchestrator_file = item / "orchestrator.py"
-                    constants_file = item / "constants.py"
-                    
-                    if orchestrator_file.exists():
-                        optimization_name = item.name
-                        self.logger.debug(f"Found optimization: {optimization_name}")
-                        
-                        # Try to register this optimization
-                        self._register_optimization(optimization_name, item)
-        
-        except Exception as e:
-            self.logger.error(f"Error discovering optimizations: {str(e)}")
+        for strategy in strategies:
+            name = strategy.get_name()
+            self._strategies[name] = strategy
+            self.logger.info(f"Registered strategy: {name}")
     
-    def _register_optimization(self, optimization_name: str, optimization_path: Path) -> None:
+    def create_strategy(self, strategy_name: str) -> Optional[OptimizationStrategy]:
         """
-        Register a discovered optimization.
+        Create an instance of the specified strategy.
         
         Args:
-            optimization_name: Name of the optimization (folder name)
-            optimization_path: Path to the optimization folder
-        """
-        try:
-            # Import the orchestrator module
-            module_path = f"business.portfolio_optimizations.{optimization_name}.orchestrator"
-            orchestrator_module = importlib.import_module(module_path)
-            
-            # Find the orchestrator class (should end with 'Orchestrator')
-            orchestrator_class = None
-            for attr_name in dir(orchestrator_module):
-                attr = getattr(orchestrator_module, attr_name)
-                if (isinstance(attr, type) and 
-                    attr_name.endswith('Orchestrator') and 
-                    attr_name != 'PortfolioBaseOptimization'):
-                    orchestrator_class = attr
-                    break
-            
-            if orchestrator_class:
-                # Try to import constants for metadata
-                try:
-                    constants_module_path = f"business.portfolio_optimizations.{optimization_name}.constants"
-                    constants_module = importlib.import_module(constants_module_path)
-                    
-                    # Extract metadata from constants
-                    metadata = {
-                        "success_messages": getattr(constants_module, 'SUCCESS_MESSAGES', {}),
-                        "error_messages": getattr(constants_module, 'ERROR_MESSAGES', {}),
-                        "required_columns": getattr(constants_module, 'REQUIRED_COLUMNS', []),
-                        "target_entity": getattr(constants_module, 'TARGET_ENTITY', None),
-                        "highlight_color": getattr(constants_module, 'HIGHLIGHT_COLOR', None),
-                    }
-                except ImportError:
-                    metadata = {}
-                
-                # Enhance metadata with configuration information
-                try:
-                    from config.portfolio_config import get_optimization_config
-                    config_metadata = get_optimization_config(optimization_name)
-                    metadata.update(config_metadata)
-                except ImportError:
-                    pass  # Config not available, use default metadata
-                
-                # Register the optimization
-                self._optimization_registry[optimization_name] = {
-                    "name": optimization_name,
-                    "display_name": self._format_display_name(optimization_name),
-                    "orchestrator_class": orchestrator_class,
-                    "module_path": module_path,
-                    "metadata": metadata,
-                    "enabled": metadata.get("enabled", True),
-                    "category": metadata.get("category", "general"),
-                    "result_type": metadata.get("result_type", "unknown"),
-                    "help_text": metadata.get("help_text", metadata.get("description", "No description available"))
-                }
-                
-                self.logger.info(f"Registered optimization: {optimization_name}")
-            else:
-                self.logger.warning(f"No orchestrator class found in {module_path}")
-                
-        except ImportError as e:
-            self.logger.warning(f"Could not import {optimization_name}: {str(e)}")
-        except Exception as e:
-            self.logger.error(f"Error registering {optimization_name}: {str(e)}")
-    
-    def _format_display_name(self, optimization_name: str) -> str:
-        """
-        Convert optimization folder name to user-friendly display name.
-        
-        Uses configuration registry for consistent naming.
-        
-        Args:
-            optimization_name: Folder name (e.g., "campaigns_without_portfolios")
+            strategy_name: Name of the strategy to create
             
         Returns:
-            Display name (e.g., "Campaigns w/o Portfolios")
+            Strategy instance or None if not found
         """
-        try:
-            from config.portfolio_config import get_optimization_display_name
-            return get_optimization_display_name(optimization_name)
-        except ImportError:
-            # Fallback to manual mapping if config not available
-            name_mappings = {
-                "campaigns_without_portfolios": "Campaigns w/o Portfolios",
-                "empty_portfolios": "Empty Portfolios"
-            }
-            
-            if optimization_name in name_mappings:
-                return name_mappings[optimization_name]
-            
-            # Default: Replace underscores with spaces and title case
-            return optimization_name.replace('_', ' ').title()
-    
-    def get_available_optimizations(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get all available optimizations.
+        if strategy_name not in self._strategies:
+            self.logger.error(f"Strategy not found: {strategy_name}")
+            return None
         
-        Returns:
-            Dictionary with optimization info keyed by optimization name
-        """
-        return self._optimization_registry.copy()
+        self.logger.info(f"Creating strategy: {strategy_name}")
+        return self._strategies[strategy_name]
+    
+    def get_available_strategies(self) -> List[str]:
+        """Get list of available strategy names."""
+        return list(self._strategies.keys())
     
     def get_enabled_optimizations(self) -> Dict[str, Dict[str, Any]]:
         """
-        Get only enabled optimizations.
+        Get all enabled optimizations with their metadata.
         
         Returns:
-            Dictionary with enabled optimization info
+            Dictionary of optimization name to metadata
         """
-        return {
-            name: info for name, info in self._optimization_registry.items() 
-            if info.get("enabled", True)
+        result = {}
+        for name, strategy in self._strategies.items():
+            result[name] = {
+                "display_name": self._get_display_name(name),
+                "description": strategy.get_description(),
+                "required_sheets": strategy.get_required_sheets(),
+                "enabled": True,
+                "metadata": {
+                    "description": strategy.get_description()
+                }
+            }
+        return result
+    
+    def get_display_name(self, strategy_name: str) -> str:
+        """
+        Get display name for a strategy.
+        
+        Args:
+            strategy_name: Internal strategy name
+            
+        Returns:
+            Human-readable display name
+        """
+        return self._get_display_name(strategy_name)
+    
+    def _get_display_name(self, strategy_name: str) -> str:
+        """Convert strategy name to display name."""
+        display_names = {
+            "empty_portfolios": "Empty Portfolios",
+            "campaigns_without_portfolios": "Campaigns w/o Portfolios"
         }
+        return display_names.get(strategy_name, strategy_name.replace("_", " ").title())
     
-    def create_optimization(self, optimization_name: str) -> Optional[Any]:
+    def get_ordered_strategies(self, selected_strategies: List[str]) -> List[str]:
         """
-        Create an instance of the specified optimization.
+        Get strategies in the correct execution order.
         
         Args:
-            optimization_name: Name of the optimization to create
+            selected_strategies: List of selected strategy names
             
         Returns:
-            Orchestrator instance or None if not found
+            Ordered list of strategy names
         """
-        if optimization_name not in self._optimization_registry:
-            self.logger.error(f"Optimization not found: {optimization_name}")
-            return None
+        # Sort by predefined order
+        ordered = []
+        for strategy in OPTIMIZATION_ORDER:
+            if strategy in selected_strategies:
+                ordered.append(strategy)
         
-        try:
-            orchestrator_class = self._optimization_registry[optimization_name]["orchestrator_class"]
-            instance = orchestrator_class()
-            
-            self.logger.debug(f"Created optimization instance: {optimization_name}")
-            return instance
-            
-        except Exception as e:
-            self.logger.error(f"Error creating {optimization_name}: {str(e)}")
-            return None
-    
-    def is_optimization_available(self, optimization_name: str) -> bool:
-        """
-        Check if an optimization is available and enabled.
+        # Add any strategies not in the predefined order
+        for strategy in selected_strategies:
+            if strategy not in ordered:
+                ordered.append(strategy)
         
-        Args:
-            optimization_name: Name of the optimization
-            
-        Returns:
-            True if available and enabled
-        """
-        return (optimization_name in self._optimization_registry and 
-                self._optimization_registry[optimization_name].get("enabled", True))
-    
-    def get_optimization_metadata(self, optimization_name: str) -> Dict[str, Any]:
-        """
-        Get metadata for a specific optimization.
-        
-        Args:
-            optimization_name: Name of the optimization
-            
-        Returns:
-            Metadata dictionary
-        """
-        if optimization_name not in self._optimization_registry:
-            return {}
-        
-        return self._optimization_registry[optimization_name].get("metadata", {})
-    
-    def get_display_name(self, optimization_name: str) -> str:
-        """
-        Get the display name for an optimization.
-        
-        Args:
-            optimization_name: Internal optimization name
-            
-        Returns:
-            User-friendly display name
-        """
-        if optimization_name not in self._optimization_registry:
-            return optimization_name
-        
-        return self._optimization_registry[optimization_name].get("display_name", optimization_name)
+        return ordered
 
 
-# Global factory instance
+# Singleton instance
 _factory_instance = None
 
+
 def get_portfolio_optimization_factory() -> PortfolioOptimizationFactory:
-    """
-    Get the global portfolio optimization factory instance.
-    
-    Returns:
-        PortfolioOptimizationFactory instance
-    """
+    """Get the singleton factory instance."""
     global _factory_instance
     if _factory_instance is None:
         _factory_instance = PortfolioOptimizationFactory()
