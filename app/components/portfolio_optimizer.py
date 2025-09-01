@@ -19,6 +19,8 @@ from app.state.portfolio_state import PortfolioState
 
 # Data handling imports - removed ExcelReader as it doesn't have the methods we need
 from data.validators.bulk_validator import BulkValidator
+from data.template_generator import TemplateGenerator
+from data.readers.excel_reader import ExcelReader
 
 # UI component imports - FIXED: Creating wrapper functions for alerts
 from app.ui.components.alerts import show_validation_alert
@@ -95,6 +97,10 @@ class PortfolioOptimizerPage:
         # Initialize proper state management
         self.state = PortfolioState()
         self.state.init()
+        
+        # Template generation
+        self.template_generator = TemplateGenerator()
+        self.excel_reader = ExcelReader()
 
     def _init_session_state(self):
         """Initialize session state variables using proper state management."""
@@ -181,6 +187,14 @@ class PortfolioOptimizerPage:
             unsafe_allow_html=True,
         )
 
+        # Check if Organize Top Campaigns is selected
+        selected_optimizations = st.session_state.get("portfolio_selected_optimizations", [])
+        organize_top_campaigns_selected = "organize_top_campaigns" in selected_optimizations
+
+        # Template section for Organize Top Campaigns
+        if organize_top_campaigns_selected:
+            self._render_template_section()
+
         # File uploader
         uploaded_file = st.file_uploader(
             "Upload Bulk 60 File",
@@ -240,6 +254,57 @@ class PortfolioOptimizerPage:
             self.logger.error(f"Error processing file: {str(e)}")
             show_error(f"Error processing file: {str(e)}")
             st.session_state.portfolio_status = "upload_failed"
+    
+    def _render_template_section(self):
+        """Render template download and upload section for Organize Top Campaigns."""
+        st.markdown("#### Template for Top ASINs")
+        
+        # Template download button
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            if st.button("Download Template", type="secondary", use_container_width=True):
+                try:
+                    template_bytes = self.template_generator.generate_top_asins_template()
+                    st.download_button(
+                        label="Click to download template",
+                        data=template_bytes,
+                        file_name="Top_ASINs_Template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    show_success("Template generated successfully! Click the download link above.")
+                except Exception as e:
+                    show_error(f"Error generating template: {str(e)}")
+        
+        # Template upload
+        template_file = st.file_uploader(
+            "Upload Filled Template",
+            type=["xlsx", "xls"],
+            key="portfolio_template_upload",
+            help="Upload your filled Top ASINs template",
+        )
+        
+        if template_file:
+            try:
+                success, message, template_df = self.excel_reader.read_top_asins_template(
+                    template_file.getvalue(), template_file.name
+                )
+                
+                if success:
+                    # Save to state
+                    from app.state.portfolio_state import save_portfolio_template_data
+                    save_portfolio_template_data(BytesIO(template_file.getvalue()), template_df)
+                    show_success(message)
+                    
+                    # Display template info
+                    st.info(f"✅ Template uploaded: {len(template_df)} ASINs")
+                else:
+                    show_error(message)
+                    
+            except Exception as e:
+                show_error(f"Error processing template: {str(e)}")
+        
+        st.markdown("---")
 
     def _render_process_section(self):
         """Render process files section."""
@@ -249,9 +314,18 @@ class PortfolioOptimizerPage:
         )
 
         # Check if ready to process
+        selected_optimizations = st.session_state.get("portfolio_selected_optimizations", [])
+        has_bulk_file = st.session_state.get("portfolio_sheets")
+        has_template = st.session_state.get("portfolio_template_uploaded", False)
+        
+        # For Organize Top Campaigns, we need both bulk file and template
+        organize_top_campaigns_selected = "organize_top_campaigns" in selected_optimizations
+        template_required = organize_top_campaigns_selected and not has_template
+        
         can_process = (
-            st.session_state.get("portfolio_selected_optimizations")
-            and st.session_state.get("portfolio_sheets")
+            selected_optimizations
+            and has_bulk_file
+            and not template_required
             and st.session_state.get("portfolio_status") == "ready_to_process"
         )
 
@@ -268,10 +342,12 @@ class PortfolioOptimizerPage:
                 self._process_optimizations()
 
         # Show status messages
-        if not st.session_state.get("portfolio_selected_optimizations"):
+        if not selected_optimizations:
             show_info("Please select at least one optimization")
-        elif not st.session_state.get("portfolio_sheets"):
+        elif not has_bulk_file:
             show_info("Please upload a Bulk 60 file")
+        elif template_required:
+            show_info("Please upload a template file for Organize Top Campaigns")
 
     def _process_optimizations(self):
         """Process selected optimizations."""
@@ -290,6 +366,16 @@ class PortfolioOptimizerPage:
             # Update progress
             progress_bar.progress(20, text="Validating data...")
             st.session_state.portfolio_current_step = "validating"
+
+            # Handle template data for Organize Top Campaigns
+            if "organize_top_campaigns" in selected:
+                from app.state.portfolio_state import get_portfolio_template_data
+                template_data = get_portfolio_template_data()
+                if template_data is not None:
+                    # Set template data on the strategy before running
+                    strategy = self.factory.create_strategy("organize_top_campaigns")
+                    if strategy and hasattr(strategy, 'set_template_data'):
+                        strategy.set_template_data(template_data)
 
             # Run optimizations
             progress_bar.progress(40, text="Running optimizations...")

@@ -48,6 +48,12 @@ class PortfolioState:
             st.session_state.portfolio_selected_optimizations = []
             st.session_state.empty_portfolios_selected = False
             st.session_state.campaigns_without_portfolios_selected = False
+            st.session_state.organize_top_campaigns_selected = False
+            
+            # Template file storage for Organize Top Campaigns
+            st.session_state.portfolio_template_file = None
+            st.session_state.portfolio_template_df = None
+            st.session_state.portfolio_template_uploaded = False
 
             # UI state variables (for backward compatibility with portfolio_optimizer.py)
             st.session_state.portfolio_status = "waiting_for_selection"
@@ -159,6 +165,10 @@ class PortfolioState:
         if st.session_state.get("campaigns_without_portfolios_selected", False):
             return self.has_any_bulk()
         
+        # For Organize Top Campaigns, need both bulk file and template
+        if st.session_state.get("organize_top_campaigns_selected", False):
+            return self.has_any_bulk() and st.session_state.get("portfolio_template_uploaded", False)
+        
         # For future optimizations, might need different requirements
         return self.has_any_bulk()
 
@@ -218,7 +228,7 @@ class PortfolioState:
         keys_to_preserve = ["current_page", "page", "portfolio_state_initialized"]
 
         # Clear all portfolio-specific keys
-        portfolio_keys = [k for k in st.session_state.keys() if k.startswith("portfolio_") or k.startswith("empty_portfolios_") or k.startswith("campaigns_without_portfolios_")]
+        portfolio_keys = [k for k in st.session_state.keys() if k.startswith("portfolio_") or k.startswith("empty_portfolios_") or k.startswith("campaigns_without_portfolios_") or k.startswith("organize_top_campaigns_")]
         
         for key in portfolio_keys:
             if key not in keys_to_preserve:
@@ -338,3 +348,20 @@ def reset_portfolio_all() -> None:
     """Reset all portfolio optimizer state."""
     state = PortfolioState()
     state.reset_all()
+
+
+def save_portfolio_template_data(file: BytesIO, df: pd.DataFrame) -> None:
+    """Save template file and dataframe to state."""
+    st.session_state.portfolio_template_file = file
+    st.session_state.portfolio_template_df = df
+    st.session_state.portfolio_template_uploaded = True
+
+
+def get_portfolio_template_data() -> Optional[pd.DataFrame]:
+    """Get template DataFrame from state."""
+    return st.session_state.get("portfolio_template_df")
+
+
+def has_portfolio_template() -> bool:
+    """Check if template file is uploaded."""
+    return st.session_state.get("portfolio_template_uploaded", False)

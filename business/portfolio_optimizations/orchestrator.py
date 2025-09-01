@@ -55,10 +55,11 @@ class PortfolioOptimizationOrchestrator:
             optimization_results = []
             failed_optimizations = []
             optimization_details = {}
+            additional_sheets = {}  # Track additional sheets created by strategies
             
             for strategy_name in ordered_strategies:
                 try:
-                    result = self._run_single_optimization(strategy_name, cleaned_sheets)
+                    result, strategy = self._run_single_optimization(strategy_name, cleaned_sheets)
                     if result:
                         optimization_results.append(result)
                         optimization_details[strategy_name] = {
@@ -66,6 +67,15 @@ class PortfolioOptimizationOrchestrator:
                             "metrics": result.metrics,
                             "messages": result.messages
                         }
+                        
+                        # Check if strategy created additional sheets (for Organize Top Campaigns)
+                        if hasattr(strategy, 'get_updated_sheets'):
+                            updated_sheets = strategy.get_updated_sheets()
+                            for sheet_name, sheet_df in updated_sheets.items():
+                                if sheet_name not in cleaned_sheets:
+                                    additional_sheets[sheet_name] = sheet_df
+                                    self.logger.info(f"Strategy {strategy_name} created additional sheet: {sheet_name}")
+                                    
                 except Exception as e:
                     self.logger.error(f"Optimization {strategy_name} failed: {str(e)}")
                     failed_optimizations.append(strategy_name)
@@ -79,6 +89,9 @@ class PortfolioOptimizationOrchestrator:
                 cleaned_sheets,
                 optimization_results
             )
+            
+            # Step 4b: Add any additional sheets created by strategies
+            merged_data.update(additional_sheets)
             
             # Step 5: Create run report with enhanced conflict information
             execution_time = time.time() - start_time
@@ -168,7 +181,7 @@ class PortfolioOptimizationOrchestrator:
         self,
         strategy_name: str,
         data: Dict[str, pd.DataFrame]
-    ) -> Optional[OptimizationResult]:
+    ) -> Tuple[Optional[OptimizationResult], Any]:
         """
         Run a single optimization strategy.
         
@@ -177,7 +190,7 @@ class PortfolioOptimizationOrchestrator:
             data: Input data
             
         Returns:
-            Optimization result or None if failed
+            Tuple of (optimization result or None if failed, strategy instance)
         """
         self.logger.info(f"Running optimization: {strategy_name}")
         
@@ -190,7 +203,7 @@ class PortfolioOptimizationOrchestrator:
         result = strategy.run(data)
         
         self.logger.info(f"Optimization {strategy_name} complete: {result.metrics}")
-        return result
+        return result, strategy
     
     def create_output_file(
         self,

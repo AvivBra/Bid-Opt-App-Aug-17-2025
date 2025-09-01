@@ -124,11 +124,11 @@ def _create_cleaned_structure(
     
     # Add Campaigns sheet (only if not empty)
     if not campaigns_df.empty:
-        cleaned_sheets["Campaigns"] = campaigns_df
-        logger.info(f"Created Campaigns sheet: {len(campaigns_df)} rows")
+        cleaned_sheets["Campaign"] = campaigns_df
+        logger.info(f"Created Campaign sheet: {len(campaigns_df)} rows")
     else:
-        logger.info("No Campaign entities found - Campaigns sheet will be empty")
-        cleaned_sheets["Campaigns"] = campaigns_df  # Include even if empty for consistency
+        logger.info("No Campaign entities found - Campaign sheet will be empty")
+        cleaned_sheets["Campaign"] = campaigns_df  # Include even if empty for consistency
     
     # Add Product Ad sheet (only if not empty) 
     if not product_ads_df.empty:
@@ -137,6 +137,11 @@ def _create_cleaned_structure(
     else:
         logger.info("No Product Ad entities found - Product Ad sheet will be empty")
         cleaned_sheets["Product Ad"] = product_ads_df  # Include even if empty for consistency
+    
+    # Preserve Sheet3 if it exists (metadata sheet)
+    if "Sheet3" in all_sheets:
+        cleaned_sheets["Sheet3"] = all_sheets["Sheet3"].copy()
+        logger.info(f"Preserved Sheet3: {len(cleaned_sheets['Sheet3'])} rows")
     
     # Log removed sheets
     original_sheets = set(all_sheets.keys())
@@ -162,20 +167,21 @@ def validate_cleaned_structure(cleaned_sheets: Dict[str, pd.DataFrame]) -> bool:
     Raises:
         ValueError: If structure is invalid
     """
-    required_sheets = [SHEET_PORTFOLIOS, "Campaigns", "Product Ad"]
+    required_sheets = [SHEET_PORTFOLIOS, "Campaign", "Product Ad"]
     
     # Check all required sheets exist
     for sheet_name in required_sheets:
         if sheet_name not in cleaned_sheets:
             raise ValueError(f"Required sheet missing after cleaning: {sheet_name}")
     
-    # Check no extra sheets exist
-    extra_sheets = set(cleaned_sheets.keys()) - set(required_sheets)
+    # Check no extra sheets exist (allow Sheet3 as it's metadata)
+    allowed_extra_sheets = {"Sheet3"}
+    extra_sheets = set(cleaned_sheets.keys()) - set(required_sheets) - allowed_extra_sheets
     if extra_sheets:
         raise ValueError(f"Extra sheets found after cleaning: {list(extra_sheets)}")
     
     # Check Entity column exists in campaign-related sheets
-    for sheet_name in ["Campaigns", "Product Ad"]:
+    for sheet_name in ["Campaign", "Product Ad"]:
         if not cleaned_sheets[sheet_name].empty:
             if COL_ENTITY not in cleaned_sheets[sheet_name].columns:
                 raise ValueError(f"Entity column missing in {sheet_name} sheet")

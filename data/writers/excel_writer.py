@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
+from ..writers.template_writer import TemplateWriter
 
 
 class ExcelWriter:
@@ -30,18 +31,27 @@ class ExcelWriter:
             start_color="FFFF00", end_color="FFFF00", fill_type="solid"
         )
 
+        # Blue color for ASIN PA header
+        self.blue_fill = PatternFill(
+            start_color="0066CC", end_color="0066CC", fill_type="solid"
+        )
+
         # Header formatting (optional - you can remove if not wanted)
         self.header_fill = PatternFill(
             start_color="E0E0E0", end_color="E0E0E0", fill_type="solid"
         )
 
         self.header_font = Font(bold=True)
+        self.blue_header_font = Font(bold=True, color="FFFFFF")  # White text on blue background
 
         # Center alignment for all cells
         self.center_alignment = Alignment(horizontal="center", vertical="center")
 
         # No borders
         self.no_border = Border()
+        
+        # Template writer for Top sheet handling
+        self.template_writer = TemplateWriter()
 
     def write_excel(
         self, sheets_dict: Dict[str, pd.DataFrame], filename: Optional[str] = None
@@ -77,16 +87,34 @@ class ExcelWriter:
             if "Sheet" in wb.sheetnames:
                 wb.remove(wb["Sheet"])
 
-            # Add each dataframe as a sheet
+            # Define expected sheet order for Organize Top Campaigns
+            expected_order = ['Portfolios', 'Campaign', 'Top', 'Product Ad', 'Sheet3']
+            
+            # Reorder sheets according to expected order, then add any remaining sheets
+            ordered_sheets = []
+            for sheet_name in expected_order:
+                if sheet_name in sheets_dict:
+                    ordered_sheets.append((sheet_name, sheets_dict[sheet_name]))
+            
+            # Add any remaining sheets not in expected order
             for sheet_name, df in sheets_dict.items():
+                if sheet_name not in expected_order:
+                    ordered_sheets.append((sheet_name, df))
+            
+            # Add each dataframe as a sheet in correct order
+            for sheet_name, df in ordered_sheets:
                 if not isinstance(df, pd.DataFrame):
                     self.logger.warning(f"Skipping {sheet_name}: not a DataFrame")
                     continue
 
-                if df.empty:
+                if df.empty and sheet_name != "Sheet3":
                     self.logger.warning(f"Skipping empty sheet: {sheet_name}")
                     continue
 
+                # Handle special Top sheet
+                if sheet_name == "Top":
+                    self._add_top_sheet(wb, df)
+                    continue
 
                 # Create worksheet
                 ws = wb.create_sheet(title=self._clean_sheet_name(sheet_name))
@@ -159,7 +187,14 @@ class ExcelWriter:
         # Write headers
         for col_idx, col_name in enumerate(df.columns, 1):
             cell = ws.cell(row=1, column=col_idx, value=str(col_name))
-            cell.font = self.header_font
+            
+            # Special formatting for ASIN PA column header (blue background)
+            if col_name == "ASIN PA":
+                cell.font = self.blue_header_font
+                cell.fill = self.blue_fill
+            else:
+                cell.font = self.header_font
+                
             cell.alignment = self.center_alignment
             cell.border = self.no_border
 
@@ -204,6 +239,9 @@ class ExcelWriter:
                             "calc3",
                         ]:
                             cell.number_format = "0.000"
+                        # Apply 2 decimal places for financial columns to prevent precision issues
+                        elif col_name in ["Spend", "Sales", "Cost", "Revenue"]:
+                            cell.number_format = "0.00"
                         else:
                             cell.number_format = "General"
                 elif isinstance(value, str):
@@ -333,3 +371,14 @@ class ExcelWriter:
         self.logger.info("Creating Clean File (currently same as Working File)")
 
         return self.create_working_file(optimization_results)
+    
+    def _add_top_sheet(self, workbook, top_asins_df: pd.DataFrame) -> None:
+        """
+        Add Top sheet to workbook using template writer.
+        
+        Args:
+            workbook: openpyxl Workbook object
+            top_asins_df: DataFrame with Top ASINs data
+        """
+        self.logger.info("Adding Top sheet to workbook")
+        self.template_writer.write_top_sheet_to_excel(workbook, top_asins_df)

@@ -4,10 +4,14 @@ import pandas as pd
 import io
 from typing import Dict, Tuple, Optional
 from config.constants import TEMPLATE_REQUIRED_SHEETS, BULK_SHEET_NAME
+from .template_reader import TemplateReader
 
 
 class ExcelReader:
     """Handles reading Excel files for the application."""
+    
+    def __init__(self):
+        self.template_reader = TemplateReader()
 
     def read_template_file(
         self, file_data: bytes
@@ -150,3 +154,32 @@ class ExcelReader:
 
         except Exception as e:
             return df, f"Error during cleaning: {str(e)}"
+    
+    def read_top_asins_template(
+        self, file_data: bytes, filename: str = "template.xlsx"
+    ) -> Tuple[bool, str, Optional[pd.DataFrame]]:
+        """
+        Read Top ASINs template file.
+        
+        Args:
+            file_data: File bytes
+            filename: Original filename
+            
+        Returns:
+            Tuple of (success, message, template_dataframe)
+        """
+        try:
+            template_df = self.template_reader.read_template(file_data, filename)
+            
+            if not self.template_reader.validate_top_asins_template(template_df):
+                return False, "Template validation failed", None
+            
+            # Extract and normalize Top ASINs
+            clean_asins_df = self.template_reader.extract_top_asins(template_df)
+            
+            return True, f"Template loaded: {len(clean_asins_df)} ASINs", clean_asins_df
+            
+        except ValueError as e:
+            return False, str(e), None
+        except Exception as e:
+            return False, f"Error reading template: {str(e)}", None

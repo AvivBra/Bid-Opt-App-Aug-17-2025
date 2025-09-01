@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional, Any
 from .contracts import OptimizationStrategy
-from .strategies import EmptyPortfoliosStrategy, CampaignsWithoutPortfoliosStrategy
+from .strategies import EmptyPortfoliosStrategy, CampaignsWithoutPortfoliosStrategy, OrganizeTopCampaignsStrategy
 from .constants import OPTIMIZATION_ORDER
 
 
@@ -20,7 +20,8 @@ class PortfolioOptimizationFactory:
         # Register each strategy
         strategies = [
             EmptyPortfoliosStrategy(),
-            CampaignsWithoutPortfoliosStrategy()
+            CampaignsWithoutPortfoliosStrategy(),
+            OrganizeTopCampaignsStrategy()
         ]
         
         for strategy in strategies:
@@ -85,7 +86,8 @@ class PortfolioOptimizationFactory:
         """Convert strategy name to display name."""
         display_names = {
             "empty_portfolios": "Empty Portfolios",
-            "campaigns_without_portfolios": "Campaigns w/o Portfolios"
+            "campaigns_without_portfolios": "Campaigns w/o Portfolios",
+            "organize_top_campaigns": "Organize Top Campaigns"
         }
         return display_names.get(strategy_name, strategy_name.replace("_", " ").title())
     

@@ -9,6 +9,7 @@ from config.constants import (
     TEMPLATE_PORT_VALUES_COLUMNS,
     TEMPLATE_DELETE_FOR_60_COLUMNS,
 )
+from business.portfolio_optimizations.templates import TopCampaignsTemplateGenerator
 
 
 class TemplateGenerator:
@@ -18,6 +19,7 @@ class TemplateGenerator:
         self.port_values_columns = TEMPLATE_PORT_VALUES_COLUMNS
         self.delete_for_60_columns = TEMPLATE_DELETE_FOR_60_COLUMNS
         self.required_sheets = TEMPLATE_REQUIRED_SHEETS
+        self.top_campaigns_generator = TopCampaignsTemplateGenerator()
 
     def generate_template(self) -> bytes:
         """Generate a complete template Excel file."""
@@ -153,3 +155,7 @@ class TemplateGenerator:
             "Test Portfolio 1",
             "Test Portfolio 2",
         ]
+    
+    def generate_top_asins_template(self) -> bytes:
+        """Generate Top ASINs template for Organize Top Campaigns optimization."""
+        return self.top_campaigns_generator.generate_template()

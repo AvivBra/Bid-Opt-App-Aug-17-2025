@@ -7,21 +7,21 @@
 
 לפני הפעלת העיבודים של הצ'קבוקסים שנבחרו, יש לבצע את הפעולות הבאות:
 
-### 1. יצירת לשונית Campaigns
+### 1. יצירת לשונית Campaign
 - מעבירים את כל השורות שבהן `Entity = Campaign` ללשונית נפרדת
-- קוראים ללשונית החדשה: **Campaigns**
+- קוראים ללשונית החדשה: **Campaign**
 
 ### 2. יצירת לשונית Product Ad
 - מעבירים את כל השורות שבהן `Entity = Product Ad` ללשונית נפרדת  
 - קוראים ללשונית החדשה: **Product Ad**
 
-### 3. ניקוי לשונית Sponsored Products Campaigns
-- מוחקים את כל השורות שנשארו בלשונית **Sponsored Products Campaigns**
+### 3. ניקוי לשונית Sponsored Products Campaign
+- מוחקים את כל השורות שנשארו בלשונית **Sponsored Products Campaign**
 
 ### 4. מחיקת לשוניות מיותרות
 - מוחקים כל לשונית שאינה:
   - Portfolios
   - Product Ad
-  - Campaigns
+  - Campaign
 
-*זה אומר שכל השורות שהיו במקור בלשונית Sponsored Products Campaigns ולא הועברו ל-Campaigns או Product Ad ימחקו יחד עם הלשונית Sponsored Products Campaigns
+*זה אומר שכל השורות שהיו במקור בלשונית Sponsored Products Campaign ולא הועברו ל-Campaign או Product Ad ימחקו יחד עם הלשונית Sponsored Products Campaign

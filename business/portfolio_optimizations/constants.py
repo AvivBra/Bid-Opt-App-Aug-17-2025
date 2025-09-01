@@ -6,14 +6,16 @@ SHEET_PORTFOLIOS = "Portfolios"
 SHEET_BRANDS = "Sponsored Brands Campaigns"
 
 # Sheet names (after cleaning)
-SHEET_CAMPAIGNS_CLEANED = "Campaigns"
+SHEET_CAMPAIGNS_CLEANED = "Campaign"
 SHEET_PRODUCT_AD = "Product Ad"
+SHEET_TOP = "Top"
 
 # Column names
 COL_ENTITY = "Entity"
 COL_CAMPAIGN_ID = "Campaign ID"
 COL_PORTFOLIO_ID = "Portfolio ID"
 COL_PORTFOLIO_NAME = "Portfolio Name"
+COL_PORTFOLIO_NAME_INFO = "Portfolio Name (Informational only)"
 COL_OLD_PORTFOLIO_NAME = "Old Portfolio Name"
 COL_CAMP_COUNT = "Camp Count"
 COL_OPERATION = "Operation"
@@ -21,6 +23,13 @@ COL_BUDGET_AMOUNT = "Budget Amount"
 COL_BUDGET_START_DATE = "Budget Start Date"
 COL_BUDGET_END_DATE = "Budget End Date"
 COL_BUDGET_POLICY = "Budget Policy"
+COL_ASIN = "ASIN"
+
+# Organize Top Campaigns specific columns
+COL_ADS_COUNT = "Ads Count"
+COL_ASIN_PA = "ASIN PA"
+COL_TOP = "Top"
+COL_TOP_ASINS = "Top ASINs"
 
 # Protected columns that cannot be updated
 PROTECTED_COLUMNS = [
@@ -64,7 +73,8 @@ MAX_ROWS_PER_SHEET = 500000
 # Optimization order
 OPTIMIZATION_ORDER = [
     "empty_portfolios",
-    "campaigns_without_portfolios"
+    "campaigns_without_portfolios",
+    "organize_top_campaigns"
 ]
 
 # Required sheets after cleaning

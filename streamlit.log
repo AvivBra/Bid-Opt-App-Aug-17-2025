@@ -1,0 +1,127 @@
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://localhost:8504
+
+  For better performance, install the Watchdog module:
+
+  $ xcode-select --install
+  $ pip install watchdog
+            
+2025-09-01 16:19:44.942 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2025-09-01 16:19:54.751 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:19:54] INFO [PortfolioOptimizer] Registered strategy: empty_portfolios
+[2025-09-01 16:19:54] INFO [PortfolioOptimizer] Registered strategy: campaigns_without_portfolios
+[2025-09-01 16:19:54] INFO [PortfolioOptimizer] Registered strategy: organize_top_campaigns
+2025-09-01 16:19:59.139 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2025-09-01 16:20:08.596 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2025-09-01 16:20:29.516 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:20:29] INFO [PortfolioOptimizer] Reading template file: Empty Template Example.xlsx
+[2025-09-01 16:20:29] ERROR [PortfolioOptimizer] Failed to read template file Empty Template Example.xlsx: Template file is empty
+2025-09-01 16:20:39.089 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Reading template file: Filled Template Example.xlsx
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Template read successfully: 282 rows, 1 columns
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Validating Top ASINs template
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Template validation passed: 282 valid ASINs found
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Extracting Top ASINs from template
+[2025-09-01 16:20:39] INFO [PortfolioOptimizer] Extracted 282 unique ASINs
+2025-09-01 16:20:45.425 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Reading template file: Filled Template Example.xlsx
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Template read successfully: 282 rows, 1 columns
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Validating Top ASINs template
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Template validation passed: 282 valid ASINs found
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Extracting Top ASINs from template
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Extracted 282 unique ASINs
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Processing 1 optimizations: ['organize_top_campaigns']
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Creating strategy: organize_top_campaigns
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Template data set: 282 ASINs
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Starting optimizations: ['organize_top_campaigns']
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Validating and cleaning data
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Data cleaning completed
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Starting data structure cleaning
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Splitting campaigns sheet by Entity type
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Entity split results:
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer]   Total rows: 24822
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer]   Campaign rows: 976
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer]   Product Ad rows: 984
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer]   Other entity rows (will be removed): 22862
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer]   Entity types being removed: ['Campaign Negative Keyword', 'Ad Group', 'Keyword', 'Negative Keyword', 'Product Targeting', 'Negative Product Targeting']
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Creating cleaned structure with required sheets only
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Preserved Portfolios sheet: 214 rows
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Created Campaign sheet: 976 rows
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Created Product Ad sheet: 984 rows
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Preserved Sheet3: 0 rows
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Removed sheets: ['RAS Campaigns', 'Sponsored Products Campaigns']
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Data structure cleaning completed. Final sheets: ['Portfolios', 'Campaign', 'Product Ad', 'Sheet3']
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Cleaned structure validation passed
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Data structure cleaning completed
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Running optimization: organize_top_campaigns
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Creating strategy: organize_top_campaigns
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] [Contract Validator] Validating strategy: organize_top_campaigns
+[2025-09-01 16:20:45] WARNING [PortfolioOptimizer] [organize_top_campaigns] Sheet Sheet3 is empty
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Starting Organize Top Campaigns optimization
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Starting Ads Count processing
+[2025-09-01 16:20:45] INFO [PortfolioOptimizer] Adding Ads Count column with COUNTIFS logic
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Filtering rows based on Ads Count and ignore rules
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Filtered 4 rows with Ads Count > 1 (ignored 5 rows)
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Filtering rows based on portfolio name patterns
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Filtered 7 rows with portfolio patterns: ['Flat', 'Same', 'Defense', 'Offense']
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Removed temporary Ads Count column after filtering
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Ads Count processing complete: 976 -> 965 rows
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Starting ASIN matching process
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Adding ASIN PA column with VLOOKUP logic
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] ASIN PA column added: 965 ASIN matches found
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] ASIN matching process complete
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Template data set: 282 ASINs
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Starting Top campaigns processing
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Adding Top column
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Creating Top sheet with template data
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Top sheet created with 282 ASIN entries
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Filling Top column with VLOOKUP logic
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Template contains 282 valid ASINs
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Top column filled: 765 campaigns marked with 'V'
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Top campaigns processing complete
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Organize Top Campaigns optimization complete: 965 campaigns processed
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] [Contract Validator] Strategy organize_top_campaigns output validation passed
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] [Contract Validator] ✅ Strategy organize_top_campaigns passed all contract validations
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Optimization organize_top_campaigns complete: {'rows_checked': 976, 'rows_updated': 965, 'cells_updated': 1930, 'rows_filtered': 11, 'columns_added': 2, 'campaigns_with_v_marks': 765, 'template_asins': 282}
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Strategy organize_top_campaigns created additional sheet: Top
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Starting merge of 1 results
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Applying result 1/1: campaigns
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Adding new column ASIN PA to sheet Campaign
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Adding new column Top to sheet Campaign
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Merge complete: 965 rows, 1930 cells updated
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Optimizations complete in 0.96 seconds
+[2025-09-01 16:20:46] INFO [PortfolioOptimizer] Creating output file using excel_writer.py per PRD step 45
+[2025-09-01 16:20:47] WARNING [PortfolioOptimizer] Skipping empty sheet: Sheet3
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Adding Top sheet to workbook
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Adding Top sheet to workbook
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Top sheet added with 282 ASINs
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Successfully created Excel file with 5 sheets
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Created output file with 5 sheets using excel_writer.py
+2025-09-01 16:20:47.860 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Reading template file: Filled Template Example.xlsx
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Template read successfully: 282 rows, 1 columns
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Validating Top ASINs template
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Template validation passed: 282 valid ASINs found
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Extracting Top ASINs from template
+[2025-09-01 16:20:47] INFO [PortfolioOptimizer] Extracted 282 unique ASINs
+2025-09-01 16:21:05.928 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Reading template file: Filled Template Example.xlsx
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Template read successfully: 282 rows, 1 columns
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Validating Top ASINs template
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Template validation passed: 282 valid ASINs found
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Extracting Top ASINs from template
+[2025-09-01 16:21:05] INFO [PortfolioOptimizer] Extracted 282 unique ASINs
+[DEBUG ExcelWriter] write_excel() called:
+[DEBUG ExcelWriter]   sheets_dict type: <class 'dict'>
+[DEBUG ExcelWriter]   number of sheets: 5
+[DEBUG ExcelWriter]   Portfolios: (214, 12) (DataFrame)
+[DEBUG ExcelWriter]   Campaign: (976, 50) (DataFrame)
+[DEBUG ExcelWriter]   Product Ad: (984, 48) (DataFrame)
+[DEBUG ExcelWriter]   Sheet3: (0, 2) (DataFrame)
+[DEBUG ExcelWriter]   Top: (282, 1) (DataFrame)
+[DEBUG ExcelWriter] Final Excel file created:
+[DEBUG ExcelWriter]   File size: 479425 bytes
+[DEBUG ExcelWriter]   Sheets processed: 5
+  Stopping...
