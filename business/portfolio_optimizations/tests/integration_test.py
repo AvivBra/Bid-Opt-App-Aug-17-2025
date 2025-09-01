@@ -7,10 +7,10 @@ from typing import Dict, Any
 import time
 
 # Import all components
-from .orchestrator import PortfolioOptimizationOrchestrator  
-from .factory import get_portfolio_optimization_factory
-from .contract_validator import validate_contract_compliance
-from .constants import SHEET_CAMPAIGNS, SHEET_PORTFOLIOS
+from ..orchestrator import PortfolioOptimizationOrchestrator  
+from ..factory import get_portfolio_optimization_factory
+from ..contract_validator import validate_contract_compliance
+from ..constants import SHEET_CAMPAIGNS, SHEET_PORTFOLIOS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

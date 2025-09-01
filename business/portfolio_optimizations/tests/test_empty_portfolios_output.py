@@ -7,11 +7,11 @@ import sys
 import os
 
 # Add the project root to the path
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.append(str(project_root))
 
-from business.portfolio_optimizations.orchestrator import PortfolioOptimizationOrchestrator
-from business.portfolio_optimizations.cleaning import clean_data_structure
+from ..orchestrator import PortfolioOptimizationOrchestrator
+from ..cleaning import clean_data_structure
 
 
 def setup_logging():
