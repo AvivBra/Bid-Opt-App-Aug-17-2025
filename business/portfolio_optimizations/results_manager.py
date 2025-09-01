@@ -8,6 +8,8 @@ import time
 from .contracts import OptimizationResult, MergeConflict, MergeError
 from .constants import (
     PROTECTED_COLUMNS,
+    CONDITIONALLY_PROTECTED_COLUMNS,
+    COL_PORTFOLIO_ID,
     MAX_CELL_UPDATES,
     MAX_MERGE_TIME_SECONDS,
     ERROR_MESSAGES,
@@ -58,7 +60,7 @@ class ResultsManager:
             )
 
             cells_updated = self._apply_patch(
-                merged_data, result.patch, result.merge_keys, optimization_index=i
+                merged_data, result.patch, result.merge_keys, optimization_index=i, result_type=result.result_type
             )
 
             total_cells_updated += cells_updated
@@ -94,6 +96,7 @@ class ResultsManager:
         patch: Any,  # PatchData
         merge_keys: List[str],
         optimization_index: int,
+        result_type: str = None,
     ) -> int:
         """
         Apply a single patch to the data.
@@ -130,9 +133,19 @@ class ResultsManager:
 
             # Apply cell changes
             for column, new_value in update.cell_changes.items():
+                # Check if column is protected
                 if column in PROTECTED_COLUMNS:
                     self.logger.warning(f"Skipping protected column: {column}")
                     continue
+                
+                # Check if column is conditionally protected
+                if column in CONDITIONALLY_PROTECTED_COLUMNS:
+                    # Allow Portfolio ID updates for campaigns_without_portfolios optimization
+                    if column == COL_PORTFOLIO_ID and result_type == "campaigns":
+                        self.logger.info(f"Allowing Portfolio ID update for campaigns optimization")
+                    else:
+                        self.logger.warning(f"Skipping conditionally protected column: {column} for result_type: {result_type}")
+                        continue
 
                 if column not in df.columns:
                     # Add new column if it doesn't exist

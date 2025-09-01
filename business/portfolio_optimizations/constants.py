@@ -25,8 +25,12 @@ COL_BUDGET_POLICY = "Budget Policy"
 # Protected columns that cannot be updated
 PROTECTED_COLUMNS = [
     COL_ENTITY,
-    COL_CAMPAIGN_ID,
-    COL_PORTFOLIO_ID
+    COL_CAMPAIGN_ID
+]
+
+# Conditionally protected columns (context-dependent)
+CONDITIONALLY_PROTECTED_COLUMNS = [
+    COL_PORTFOLIO_ID  # Protected except for campaigns_without_portfolios optimization
 ]
 
 # Entity types

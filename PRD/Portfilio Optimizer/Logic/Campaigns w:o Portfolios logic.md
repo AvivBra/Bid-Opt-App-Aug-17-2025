@@ -14,19 +14,18 @@
 
 ### 1. זיהוי קמפיינים ללא פורטפוליו
 מציאת כל השורות שעונות על התנאים:
-- **Tab:** Sponsored Products Campaigns
+- **Tab:** Campaign
 - **Entity:** Campaign
 - **Portfolio ID:** Empty (ריק)
 
 ### 2. עדכון קמפיינים
 בכל השורות שנמצאו, לבצע את העדכונים הבאים:
 
-| שדה | ערך חדש |
-|-----|---------|
-| Portfolio ID | 84453417629173 |
-| Operation | update |
+
+Portfolio ID = 84453417629173 
+Operation = update 
 
 ### 3. תחולה
-העדכון יחול על כל השורות ב-Tab "Sponsored Products Campaigns" שבהן:
+העדכון יחול על כל השורות ב-Tab "Campaign" שבהן:
 - **Entity:** Campaign
 - **Portfolio ID:** ריק
