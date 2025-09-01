@@ -49,6 +49,20 @@ class PortfolioState:
             st.session_state.empty_portfolios_selected = False
             st.session_state.campaigns_without_portfolios_selected = False
 
+            # UI state variables (for backward compatibility with portfolio_optimizer.py)
+            st.session_state.portfolio_status = "waiting_for_selection"
+            st.session_state.portfolio_original_file = None
+            st.session_state.portfolio_sheets = None
+            st.session_state.portfolio_filename = None
+            st.session_state.portfolio_upload_time = None
+            st.session_state.portfolio_current_step = None
+            st.session_state.portfolio_merged_data = None
+            st.session_state.portfolio_run_report = None
+            st.session_state.portfolio_updated_indices = None
+            st.session_state.portfolio_output_file = None
+            st.session_state.portfolio_output_filename = None
+            st.session_state.portfolio_output_created_at = None
+
             # Empty Portfolios specific state
             st.session_state.empty_portfolios_found = 0
             st.session_state.empty_portfolios_renamed = 0

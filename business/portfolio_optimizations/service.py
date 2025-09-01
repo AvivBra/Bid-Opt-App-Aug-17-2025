@@ -22,7 +22,9 @@ class PortfolioOptimizationService:
         updated_indices: Dict[str, List[int]]
     ) -> bytes:
         """
-        Create an Excel file with highlighted changes.
+        Create an Excel file with highlighted changes using dedicated excel_writer.
+        
+        Per PRD step 45: service.py calls excel_writer.py
         
         Args:
             data: Dictionary of sheet name to DataFrame
@@ -31,29 +33,32 @@ class PortfolioOptimizationService:
         Returns:
             Bytes of the Excel file
         """
-        self.logger.info("Creating output file")
+        self.logger.info("Creating output file using excel_writer.py per PRD step 45")
         
-        # Create BytesIO buffer
-        output = BytesIO()
+        # Import excel_writer as specified in PRD
+        from data.writers.excel_writer import ExcelWriter
         
-        # Write data to Excel
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            for sheet_name, df in data.items():
-                # Clean data before writing
-                df_clean = self._prepare_dataframe(df)
-                
-                # Write to Excel
-                df_clean.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+        # Prepare data for excel_writer
+        prepared_data = {}
+        for sheet_name, df in data.items():
+            # Clean data before writing
+            df_clean = self._prepare_dataframe(df)
+            
+            # Add highlighting information for excel_writer
+            if sheet_name in updated_indices:
+                # Mark rows that need yellow highlighting
+                df_clean = self._mark_rows_for_highlighting(df_clean, updated_indices[sheet_name])
+            
+            prepared_data[sheet_name] = df_clean
         
-        # Add highlighting
-        output.seek(0)
-        output = self._add_highlighting(output, updated_indices)
+        # Use dedicated excel_writer per PRD specification
+        excel_writer = ExcelWriter()
+        output_buffer = excel_writer.write_excel(prepared_data)
         
-        # Get bytes
-        output.seek(0)
-        result = output.read()
+        # Get bytes from buffer
+        result = output_buffer.getvalue()
         
-        self.logger.info(f"Created output file with {len(data)} sheets")
+        self.logger.info(f"Created output file with {len(data)} sheets using excel_writer.py")
         return result
     
     def _prepare_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -86,6 +91,30 @@ class PortfolioOptimizationService:
             df_clean = df_clean.drop(columns=cols_to_remove)
         
         return df_clean
+    
+    def _mark_rows_for_highlighting(self, df: pd.DataFrame, updated_indices: List[int]) -> pd.DataFrame:
+        """
+        Mark rows that need yellow highlighting for excel_writer.
+        
+        Args:
+            df: DataFrame to mark
+            updated_indices: List of row indices that were updated
+            
+        Returns:
+            DataFrame with highlighting markers
+        """
+        # Add highlighting marker column for excel_writer
+        df['_needs_highlight'] = False
+        
+        # Mark updated rows for highlighting
+        if updated_indices:
+            # Ensure indices are within DataFrame bounds
+            valid_indices = [idx for idx in updated_indices if 0 <= idx < len(df)]
+            if valid_indices:
+                df.loc[valid_indices, '_needs_highlight'] = True
+                self.logger.info(f"Marked {len(valid_indices)} rows for yellow highlighting")
+        
+        return df
     
     def _add_highlighting(
         self,

@@ -5,8 +5,9 @@ import numpy as np
 from typing import Dict, List, Any
 import logging
 from .contracts import OptimizationStrategy, OptimizationResult, PatchData, CellUpdate
+from .contract_validator import contract_validator
 from .constants import (
-    SHEET_CAMPAIGNS, SHEET_PORTFOLIOS,
+    SHEET_CAMPAIGNS_CLEANED, SHEET_PORTFOLIOS,
     COL_ENTITY, COL_CAMPAIGN_ID, COL_PORTFOLIO_ID, COL_PORTFOLIO_NAME,
     COL_OPERATION, COL_BUDGET_AMOUNT, COL_BUDGET_START_DATE,
     ENTITY_CAMPAIGN, ENTITY_PORTFOLIO, OPERATION_UPDATE,
@@ -28,14 +29,15 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
         return "Identifies and renames empty portfolios with sequential numeric names"
     
     def get_required_sheets(self) -> List[str]:
-        return [SHEET_CAMPAIGNS, SHEET_PORTFOLIOS]
+        return [SHEET_CAMPAIGNS_CLEANED, SHEET_PORTFOLIOS]
     
+    @contract_validator
     def run(self, all_sheets: Dict[str, pd.DataFrame]) -> OptimizationResult:
         """Run the empty portfolios optimization."""
         self.logger.info("Starting Empty Portfolios optimization")
         
         # Get required sheets
-        campaigns_df = all_sheets[SHEET_CAMPAIGNS].copy()
+        campaigns_df = all_sheets[SHEET_CAMPAIGNS_CLEANED].copy()
         portfolios_df = all_sheets[SHEET_PORTFOLIOS].copy()
         
         # Find portfolios with campaigns
@@ -125,14 +127,15 @@ class CampaignsWithoutPortfoliosStrategy(OptimizationStrategy):
         return "Assigns campaigns without portfolios to a default portfolio"
     
     def get_required_sheets(self) -> List[str]:
-        return [SHEET_CAMPAIGNS]
+        return [SHEET_CAMPAIGNS_CLEANED]
     
+    @contract_validator
     def run(self, all_sheets: Dict[str, pd.DataFrame]) -> OptimizationResult:
         """Run the campaigns without portfolios optimization."""
         self.logger.info("Starting Campaigns Without Portfolios optimization")
         
         # Get campaigns sheet
-        campaigns_df = all_sheets[SHEET_CAMPAIGNS].copy()
+        campaigns_df = all_sheets[SHEET_CAMPAIGNS_CLEANED].copy()
         
         # Find campaigns without portfolio
         campaigns_mask = (
@@ -159,7 +162,7 @@ class CampaignsWithoutPortfoliosStrategy(OptimizationStrategy):
         
         # Create patch
         patch = PatchData(
-            sheet_name=SHEET_CAMPAIGNS,
+            sheet_name=SHEET_CAMPAIGNS_CLEANED,
             updates=updates
         )
         

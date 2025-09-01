@@ -10,10 +10,11 @@ from .results_manager import ResultsManager
 from .service import PortfolioOptimizationService
 from .contracts import OptimizationResult, RunReport, ValidationError, OptimizationError
 from .constants import (
-    SHEET_CAMPAIGNS, SHEET_PORTFOLIOS,
+    SHEET_CAMPAIGNS, SHEET_PORTFOLIOS, SHEET_CAMPAIGNS_CLEANED,
     COL_ENTITY, COL_CAMPAIGN_ID, COL_PORTFOLIO_ID,
-    SUCCESS_MESSAGES, ERROR_MESSAGES
+    SUCCESS_MESSAGES, ERROR_MESSAGES, REQUIRED_SHEETS_AFTER_CLEANING
 )
+from .cleaning import clean_data_structure, validate_cleaned_structure
 
 
 class PortfolioOptimizationOrchestrator:
@@ -79,8 +80,10 @@ class PortfolioOptimizationOrchestrator:
                 optimization_results
             )
             
-            # Step 5: Create run report
+            # Step 5: Create run report with enhanced conflict information
             execution_time = time.time() - start_time
+            conflict_summary = self.results_manager.get_conflict_summary()
+            
             run_report = RunReport(
                 total_optimizations=len(ordered_strategies),
                 successful_optimizations=len(optimization_results),
@@ -91,6 +94,9 @@ class PortfolioOptimizationOrchestrator:
                 execution_time_seconds=execution_time,
                 optimization_details=optimization_details
             )
+            
+            # Add conflict summary for UI display
+            run_report.conflict_summary = conflict_summary
             
             self.logger.info(f"Optimizations complete in {execution_time:.2f} seconds")
             return merged_data, run_report
@@ -107,17 +113,38 @@ class PortfolioOptimizationOrchestrator:
             all_sheets: Raw input data
             
         Returns:
-            Cleaned data
+            Cleaned and restructured data
         """
         self.logger.info("Validating and cleaning data")
         
-        # Check required sheets exist
+        # Step 1: Initial validation - check original required sheets exist
         required_sheets = [SHEET_CAMPAIGNS, SHEET_PORTFOLIOS]
         for sheet in required_sheets:
             if sheet not in all_sheets:
                 raise ValidationError(ERROR_MESSAGES["missing_sheet"].format(sheet))
         
-        # Clean data (remove extra spaces, convert types)
+        # Step 2: Clean data content (remove extra spaces, convert types)
+        content_cleaned = self._clean_data_content(all_sheets)
+        
+        # Step 3: Restructure data according to preprocessing logic
+        structure_cleaned = clean_data_structure(content_cleaned)
+        
+        # Step 4: Validate cleaned structure
+        validate_cleaned_structure(structure_cleaned)
+        
+        self.logger.info(SUCCESS_MESSAGES["structure_cleaning_complete"])
+        return structure_cleaned
+    
+    def _clean_data_content(self, all_sheets: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        """
+        Clean data content (spaces, types) without changing structure.
+        
+        Args:
+            all_sheets: Input data
+            
+        Returns:
+            Content-cleaned data
+        """
         cleaned = {}
         for sheet_name, df in all_sheets.items():
             cleaned_df = df.copy()

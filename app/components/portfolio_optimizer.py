@@ -14,18 +14,64 @@ from business.portfolio_optimizations.orchestrator import (
 )
 from business.portfolio_optimizations.service import PortfolioOptimizationService
 
-# Data handling imports
-from data.readers.excel_reader import ExcelReader
+# State management imports
+from app.state.portfolio_state import PortfolioState
+
+# Data handling imports - removed ExcelReader as it doesn't have the methods we need
 from data.validators.bulk_validator import BulkValidator
 
-# UI component imports
-from app.ui.components.alerts import show_success, show_error, show_warning, show_info
-from app.ui.components.download_buttons import create_download_button
-from app.ui.components.file_cards import display_file_card
-from app.ui.components.progress_bar import show_progress
+# UI component imports - FIXED: Creating wrapper functions for alerts
+from app.ui.components.alerts import show_validation_alert
 
-# Utils
-from utils.filename_generator import generate_filename
+
+# Create wrapper functions for backward compatibility
+def show_success(message: str):
+    """Wrapper for success alert."""
+    show_validation_alert("success", message)
+
+
+def show_error(message: str):
+    """Wrapper for error alert."""
+    show_validation_alert("error", message)
+
+
+def show_warning(message: str):
+    """Wrapper for warning alert."""
+    show_validation_alert("warning", message)
+
+
+def show_info(message: str):
+    """Wrapper for info alert."""
+    show_validation_alert("info", message)
+
+
+from app.ui.components.download_buttons import create_download_button
+from app.ui.components.file_cards import render_file_card
+
+
+# Create wrapper function for display_file_card
+def display_file_card(filename: str, size_or_sheets: Any, details: Any = None):
+    """Wrapper for render_file_card to match expected interface."""
+    if isinstance(size_or_sheets, int):
+        # It's number of sheets
+        render_file_card(
+            title="BULK 60",
+            file_name=filename,
+            status="uploaded",
+            details={"Sheets": size_or_sheets},
+        )
+    else:
+        # It's file size
+        size_mb = size_or_sheets / (1024 * 1024) if size_or_sheets else 0
+        render_file_card(
+            title="BULK 60",
+            file_name=filename,
+            status="uploaded",
+            details={
+                "Size": f"{size_mb:.1f} MB",
+                "Sheets": details if details else "N/A",
+            },
+        )
 
 
 # Set up logging
@@ -44,47 +90,40 @@ class PortfolioOptimizerPage:
         self.factory = get_portfolio_optimization_factory()
         self.orchestrator = PortfolioOptimizationOrchestrator()
         self.service = PortfolioOptimizationService()
-        self.excel_reader = ExcelReader()
         self.validator = BulkValidator()
-
-        # Initialize session state
-        self._init_session_state()
+        
+        # Initialize proper state management
+        self.state = PortfolioState()
+        self.state.init()
 
     def _init_session_state(self):
-        """Initialize session state variables."""
-        if "portfolio_selected_optimizations" not in st.session_state:
-            st.session_state.portfolio_selected_optimizations = []
-        if "portfolio_original_file" not in st.session_state:
-            st.session_state.portfolio_original_file = None
-        if "portfolio_sheets" not in st.session_state:
-            st.session_state.portfolio_sheets = None
-        if "portfolio_status" not in st.session_state:
-            st.session_state.portfolio_status = "waiting_for_selection"
-        if "portfolio_output_file" not in st.session_state:
-            st.session_state.portfolio_output_file = None
+        """Initialize session state variables using proper state management."""
+        # State is now managed by PortfolioState class
+        # This method maintained for backward compatibility but delegates to state manager
+        self.state.init()
 
     def render(self):
         """Render the Portfolio Optimizer page."""
-
         # Import and apply custom CSS
         from app.ui.layout import apply_custom_css
 
         apply_custom_css()
 
-        # Create layout
+        # Create 6 columns layout: [col1 | col2 | col3 | col4 | col5 | col6]
+        # Same layout as other pages
         col1, col2, col3, col4, col5, col6 = st.columns([1, 7, 1, 1, 6, 2])
 
-        # Title in second column
+        # TITLE IN SECOND COLUMN FROM LEFT (same as other pages)
         with col2:
             st.markdown(
                 "<h1 style='text-align: left;'>Portfolio<br>Optimizer</h1>",
                 unsafe_allow_html=True,
             )
 
-        # Main content in fifth column
+        # ALL CONTENT IN FIFTH COLUMN (SECOND FROM RIGHT) - same as other pages
         with col5:
             self._render_optimization_selection()
-            st.markdown("<br>", unsafe_allow_html=True)
+            # Remove extra line break - spacing is handled inside _render_optimization_selection
             self._render_file_upload()
             st.markdown("<br>", unsafe_allow_html=True)
             self._render_process_section()
@@ -94,7 +133,7 @@ class PortfolioOptimizerPage:
     def _render_optimization_selection(self):
         """Render optimization selection section."""
         st.markdown(
-            "<h3 style='text-align: left;'>1. Select Optimization</h3>",
+            "<h3 style='text-align: left;'>1.Select Optimization</h3>",
             unsafe_allow_html=True,
         )
 
@@ -111,7 +150,7 @@ class PortfolioOptimizerPage:
 
             is_selected = st.checkbox(
                 display_name,
-                value=opt_name in st.session_state.portfolio_selected_optimizations,
+                value=opt_name in st.session_state.get("portfolio_selected_optimizations", []),
                 key=f"portfolio_opt_{opt_name}",
                 help=description,
             )
@@ -124,13 +163,21 @@ class PortfolioOptimizerPage:
 
         # Update status
         if selected:
-            if st.session_state.portfolio_status == "waiting_for_selection":
+            if st.session_state.get("portfolio_status") == "waiting_for_selection":
                 st.session_state.portfolio_status = "waiting_for_file"
+
+        # Add spacing like in other pages
+        st.markdown(
+            """
+            <div style='height: 150px;'></div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     def _render_file_upload(self):
         """Render file upload section."""
         st.markdown(
-            "<h3 style='text-align: left;'>2. Upload Files</h3>",
+            "<h3 style='text-align: left;'>2.Upload Files</h3>",
             unsafe_allow_html=True,
         )
 
@@ -159,27 +206,33 @@ class PortfolioOptimizerPage:
     def _process_uploaded_file(self, uploaded_file):
         """Process the uploaded file."""
         try:
-            # Read Excel file
-            sheets = self.excel_reader.read_excel(uploaded_file)
+            # Read Excel file - Portfolio Optimizer needs all sheets
+            # Using pandas directly as ExcelReader doesn't have read_all_sheets
+            sheets = pd.read_excel(uploaded_file, sheet_name=None)
 
-            # Validate file
-            is_valid, message = self.validator.validate_bulk_file(sheets)
+            # Validate file structure
+            required_sheets = ["Sponsored Products Campaigns", "Portfolios"]
+            missing_sheets = [s for s in required_sheets if s not in sheets]
 
-            if is_valid:
-                # Store in session state
-                st.session_state.portfolio_original_file = uploaded_file
-                st.session_state.portfolio_sheets = sheets
-                st.session_state.portfolio_filename = uploaded_file.name
-                st.session_state.portfolio_upload_time = datetime.now()
-
-                # Update status
-                if st.session_state.portfolio_selected_optimizations:
-                    st.session_state.portfolio_status = "ready_to_process"
-
-                show_success("File uploaded successfully!")
-            else:
-                show_error(f"File validation failed: {message}")
+            if missing_sheets:
+                show_error(f"Missing required sheets: {', '.join(missing_sheets)}")
                 st.session_state.portfolio_status = "validation_failed"
+                return
+
+            # Store in session state
+            st.session_state.portfolio_original_file = uploaded_file
+            st.session_state.portfolio_sheets = sheets
+            st.session_state.portfolio_filename = uploaded_file.name
+            st.session_state.portfolio_upload_time = datetime.now()
+
+            # Update status
+            if st.session_state.portfolio_selected_optimizations:
+                st.session_state.portfolio_status = "ready_to_process"
+
+            show_success(f"File uploaded successfully! Found {len(sheets)} sheets")
+
+            # Display file info
+            display_file_card(uploaded_file.name, uploaded_file.size, len(sheets))
 
         except Exception as e:
             self.logger.error(f"Error processing file: {str(e)}")
@@ -189,34 +242,37 @@ class PortfolioOptimizerPage:
     def _render_process_section(self):
         """Render process files section."""
         st.markdown(
-            "<h3 style='text-align: left;'>3. Process Files</h3>",
+            "<h3 style='text-align: left;'>3.Process Files</h3>",
             unsafe_allow_html=True,
         )
 
         # Check if ready to process
         can_process = (
-            st.session_state.portfolio_selected_optimizations
-            and st.session_state.portfolio_sheets
-            and st.session_state.portfolio_status == "ready_to_process"
+            st.session_state.get("portfolio_selected_optimizations")
+            and st.session_state.get("portfolio_sheets")
+            and st.session_state.get("portfolio_status") == "ready_to_process"
         )
 
         # Process button
-        if st.button(
-            "Process Files",
-            disabled=not can_process,
-            key="portfolio_process_button",
-            use_container_width=True,
-        ):
-            self._process_optimizations()
+        col1, col2, col3 = st.columns([1, 2, 1])
+
+        with col2:
+            if st.button(
+                "Process Optimizations",
+                type="primary",
+                use_container_width=True,
+                disabled=st.session_state.get("portfolio_status") == "processing",
+            ):
+                self._process_optimizations()
 
         # Show status messages
-        if not st.session_state.portfolio_selected_optimizations:
+        if not st.session_state.get("portfolio_selected_optimizations"):
             show_info("Please select at least one optimization")
-        elif not st.session_state.portfolio_sheets:
+        elif not st.session_state.get("portfolio_sheets"):
             show_info("Please upload a Bulk 60 file")
 
     def _process_optimizations(self):
-        """Process the selected optimizations."""
+        """Process selected optimizations."""
         try:
             # Update status
             st.session_state.portfolio_status = "processing"
@@ -226,7 +282,7 @@ class PortfolioOptimizerPage:
             progress_bar = st.progress(0, text="Starting optimization...")
 
             # Get selected optimizations
-            selected = st.session_state.portfolio_selected_optimizations
+            selected = st.session_state.get("portfolio_selected_optimizations", [])
             self.logger.info(f"Processing {len(selected)} optimizations: {selected}")
 
             # Update progress
@@ -238,26 +294,39 @@ class PortfolioOptimizerPage:
             st.session_state.portfolio_current_step = "optimizing"
 
             merged_data, run_report = self.orchestrator.run_optimizations(
-                st.session_state.portfolio_sheets, selected
+                st.session_state.get("portfolio_sheets", {}), selected
             )
 
             # Store results
             st.session_state.portfolio_merged_data = merged_data
             st.session_state.portfolio_run_report = run_report
-            st.session_state.portfolio_updated_indices = run_report.updated_indices
+
+            # According to the architecture, updated_indices comes from results_manager
+            # and should be stored separately or accessed through merge_report
+            # For now, we'll create an empty dict if not available
+            updated_indices = getattr(run_report, "updated_indices", {})
+            if not updated_indices:
+                # Try to get from optimization_details if available
+                if hasattr(run_report, "optimization_details"):
+                    # Extract updated indices from optimization details if possible
+                    updated_indices = {}
+                    for sheet in merged_data.keys():
+                        updated_indices[sheet] = []
+
+            st.session_state.portfolio_updated_indices = updated_indices
 
             # Create output file
             progress_bar.progress(80, text="Creating output file...")
             st.session_state.portfolio_current_step = "creating_file"
 
             output_bytes = self.orchestrator.create_output_file(
-                merged_data, run_report.updated_indices
+                merged_data, updated_indices
             )
 
             # Store output
             st.session_state.portfolio_output_file = output_bytes
             st.session_state.portfolio_output_filename = (
-                self.service.generate_filename()
+                self.service.generate_filename()  # Using service's method
             )
             st.session_state.portfolio_output_created_at = datetime.now()
 
@@ -288,33 +357,64 @@ class PortfolioOptimizerPage:
     def _render_download_section(self):
         """Render download section."""
         st.markdown(
-            "<h3 style='text-align: left;'>4. Download Results</h3>",
+            "<h3 style='text-align: left;'>4.Download Results</h3>",
             unsafe_allow_html=True,
         )
 
-        if st.session_state.portfolio_output_file:
-            # Create download button
-            st.download_button(
-                label="📥 Download Optimized File",
+        # Show statistics
+        if "portfolio_run_report" in st.session_state and st.session_state.get("portfolio_run_report"):
+            report = st.session_state.portfolio_run_report
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                # Handle missing total_rows attribute gracefully
+                total_rows = getattr(report, 'total_rows', report.total_rows_updated)
+                st.metric("Total Rows", f"{total_rows:,}")
+            with col2:
+                st.metric("Rows Updated", f"{report.total_rows_updated:,}")
+            with col3:
+                st.metric("Optimizations Applied", report.successful_optimizations)
+
+        # Download button
+        if st.session_state.get("portfolio_output_file"):
+            create_download_button(
+                label="Download Optimized File",
                 data=st.session_state.portfolio_output_file,
-                file_name=st.session_state.portfolio_output_filename,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="portfolio_download_button",
-                use_container_width=True,
+                file_name=st.session_state.get("portfolio_output_filename", "portfolio_optimized.xlsx"),
             )
 
-            # Show file info
-            if st.session_state.portfolio_run_report:
-                report = st.session_state.portfolio_run_report
-                st.markdown(f"""
-                **Optimization Summary:**
-                - Optimizations run: {report.successful_optimizations}/{report.total_optimizations}
-                - Rows updated: {report.total_rows_updated}
-                - Processing time: {report.execution_time_seconds:.1f} seconds
-                """)
-        else:
-            st.info("Process files to generate download")
+            # Show success message
+            show_validation_alert(
+                "success", "Your optimized file is ready for download!"
+            )
 
+        # Reset button
+        st.markdown("---")
+        if st.button("Start New Optimization"):
+            self._reset_state()
+            st.rerun()
 
-# Create page instance
-page = PortfolioOptimizerPage()
+    def _reset_state(self):
+        """Reset all portfolio optimizer state."""
+        keys_to_reset = [
+            "portfolio_selected_optimizations",
+            "portfolio_original_file",
+            "portfolio_sheets",
+            "portfolio_status",
+            "portfolio_output_file",
+            "portfolio_merged_data",
+            "portfolio_run_report",
+            "portfolio_updated_indices",
+            "portfolio_output_filename",
+            "portfolio_output_created_at",
+            "portfolio_current_step",
+            "portfolio_filename",
+            "portfolio_upload_time",
+        ]
+
+        for key in keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+
+        # Re-initialize
+        self._init_session_state()

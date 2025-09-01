@@ -154,12 +154,46 @@ class ResultsManager:
                             resolution="last_wins",
                         )
                         self.conflicts.append(conflict)
-                        self.logger.info(
-                            f"Conflict at {sheet_name}[{row_idx}][{column}]: {old_value} -> {new_value}"
-                        )
+                        
+                        # Enhanced conflict logging with user-friendly messages
+                        if column == "Portfolio Name":
+                            self.logger.info(
+                                f"⚠️  Portfolio naming conflict: Row {row_idx+1} portfolio name changed "
+                                f"from '{old_value}' to '{new_value}' (last optimization wins)"
+                            )
+                        elif column == "Portfolio ID":
+                            self.logger.info(
+                                f"⚠️  Portfolio assignment conflict: Row {row_idx+1} campaign moved "
+                                f"from portfolio '{old_value}' to '{new_value}' (last optimization wins)"
+                            )
+                        elif column == "Operation":
+                            self.logger.info(
+                                f"⚠️  Operation conflict: Row {row_idx+1} operation changed "
+                                f"from '{old_value}' to '{new_value}' (last optimization wins)"
+                            )
+                        else:
+                            self.logger.info(
+                                f"⚠️  Data conflict: Row {row_idx+1} {column} changed "
+                                f"from '{old_value}' to '{new_value}' (last optimization wins)"
+                            )
 
-                # Apply update
-                df.at[row_idx, column] = new_value
+                # Apply update with proper dtype handling to eliminate pandas warnings
+                try:
+                    # Convert column to object type first to prevent dtype warnings
+                    if df[column].dtype != 'object':
+                        df[column] = df[column].astype('object')
+                    
+                    # Then apply the update
+                    if isinstance(new_value, (int, float)) and str(new_value).replace('.', '').isdigit():
+                        # For numeric values, ensure proper conversion
+                        df.at[row_idx, column] = str(new_value).replace('.0', '') if str(new_value).endswith('.0') else str(new_value)
+                    else:
+                        # For string values, ensure string type
+                        df.at[row_idx, column] = str(new_value) if new_value is not None else ""
+                except Exception as e:
+                    # Fallback: force string conversion
+                    df.at[row_idx, column] = str(new_value) if new_value is not None else ""
+                    self.logger.warning(f"Dtype conversion issue for {column}, using fallback: {e}")
                 cells_updated += 1
 
                 # Track updated row
@@ -209,3 +243,59 @@ class ResultsManager:
     def get_updated_indices(self) -> Dict[str, List[int]]:
         """Get dictionary of updated row indices by sheet."""
         return {sheet: list(indices) for sheet, indices in self.updated_indices.items()}
+    
+    def get_conflict_summary(self) -> Dict[str, Any]:
+        """
+        Generate user-friendly conflict summary for UI display.
+        
+        Returns:
+            Dictionary with conflict statistics and user-friendly messages
+        """
+        if not self.conflicts:
+            return {
+                "total_conflicts": 0,
+                "by_type": {},
+                "messages": [],
+                "user_message": "✅ No conflicts detected - all optimizations applied cleanly"
+            }
+        
+        # Group conflicts by type
+        by_type = {}
+        user_messages = []
+        
+        for conflict in self.conflicts:
+            conflict_type = conflict.column_name
+            if conflict_type not in by_type:
+                by_type[conflict_type] = 0
+            by_type[conflict_type] += 1
+        
+        # Generate user-friendly messages
+        for conflict_type, count in by_type.items():
+            if conflict_type == "Portfolio Name":
+                user_messages.append(f"📝 {count} portfolio naming conflicts (renamed portfolios got new names)")
+            elif conflict_type == "Portfolio ID":  
+                user_messages.append(f"🔄 {count} portfolio assignment conflicts (campaigns reassigned)")
+            elif conflict_type == "Operation":
+                user_messages.append(f"⚙️ {count} operation conflicts (update operations prioritized)")
+            else:
+                user_messages.append(f"📊 {count} {conflict_type} conflicts (last value used)")
+        
+        # Overall message
+        total = len(self.conflicts)
+        if total <= 5:
+            severity = "✅"
+            overall_msg = f"{severity} {total} minor conflicts resolved automatically"
+        elif total <= 20:
+            severity = "⚠️"
+            overall_msg = f"{severity} {total} conflicts detected and resolved (review recommended)"
+        else:
+            severity = "🔴"
+            overall_msg = f"{severity} {total} conflicts detected (data review strongly recommended)"
+        
+        return {
+            "total_conflicts": total,
+            "by_type": by_type,
+            "messages": user_messages,
+            "user_message": overall_msg,
+            "severity": severity
+        }

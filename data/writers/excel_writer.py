@@ -25,9 +25,9 @@ class ExcelWriter:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-        # Pink color for error highlighting
-        self.error_fill = PatternFill(
-            start_color="FFE4E1", end_color="FFE4E1", fill_type="solid"
+        # Yellow color for highlighting updated rows
+        self.yellow_fill = PatternFill(
+            start_color="FFFF00", end_color="FFFF00", fill_type="solid"
         )
 
         # Header formatting (optional - you can remove if not wanted)
@@ -105,13 +105,11 @@ class ExcelWriter:
                 # Apply formatting
                 self._format_worksheet(ws, df_to_write)
 
-                # Highlight error rows if present
-                if hasattr(df, "attrs") and "error_rows" in df.attrs:
-                    self._highlight_error_rows(ws, df.attrs["error_rows"])
-                elif "_needs_highlight" in df.columns:
+                # Highlight updated rows if present
+                if "_needs_highlight" in df.columns:
                     # Handle _needs_highlight column from optimization processors
-                    error_rows = df[df["_needs_highlight"] == True].index.tolist()
-                    self._highlight_error_rows(ws, error_rows)
+                    updated_rows = df[df["_needs_highlight"] == True].index.tolist()
+                    self._highlight_updated_rows(ws, updated_rows)
 
             # Save workbook to BytesIO
             wb.save(output)
@@ -257,23 +255,23 @@ class ExcelWriter:
                 old_bid_cell.number_format = "0.000"
                 bid_cell.number_format = "0.000"
 
-    def _highlight_error_rows(self, ws, error_indices: List[int]):
+    def _highlight_updated_rows(self, ws, updated_indices: List[int]):
         """
-        Highlight rows with errors in pink.
+        Highlight rows that were updated in yellow.
 
         Args:
             ws: Worksheet object
-            error_indices: List of row indices to highlight (0-based from DataFrame)
+            updated_indices: List of row indices to highlight (0-based from DataFrame)
         """
 
-        for idx in error_indices:
+        for idx in updated_indices:
             # Convert DataFrame index to Excel row (add 2: +1 for 0-based to 1-based, +1 for header)
             excel_row = idx + 2
 
-            # Apply pink fill to entire row
+            # Apply yellow fill to entire row
             for col in range(1, ws.max_column + 1):
                 cell = ws.cell(row=excel_row, column=col)
-                cell.fill = self.error_fill
+                cell.fill = self.yellow_fill
 
     def create_working_file(
         self, optimization_results: Dict[str, Dict[str, pd.DataFrame]]

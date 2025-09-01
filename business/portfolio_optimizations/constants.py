@@ -1,9 +1,13 @@
 """Constants for Portfolio Optimizations module."""
 
-# Sheet names
+# Sheet names (original)
 SHEET_CAMPAIGNS = "Sponsored Products Campaigns"
 SHEET_PORTFOLIOS = "Portfolios"
 SHEET_BRANDS = "Sponsored Brands Campaigns"
+
+# Sheet names (after cleaning)
+SHEET_CAMPAIGNS_CLEANED = "Campaigns"
+SHEET_PRODUCT_AD = "Product Ad"
 
 # Column names
 COL_ENTITY = "Entity"
@@ -25,6 +29,7 @@ PROTECTED_COLUMNS = [
 # Entity types
 ENTITY_CAMPAIGN = "Campaign"
 ENTITY_PORTFOLIO = "Portfolio"
+ENTITY_PRODUCT_AD = "Product Ad"
 
 # Operations
 OPERATION_UPDATE = "update"
@@ -54,10 +59,18 @@ OPTIMIZATION_ORDER = [
     "campaigns_without_portfolios"
 ]
 
+# Required sheets after cleaning
+REQUIRED_SHEETS_AFTER_CLEANING = [
+    SHEET_PORTFOLIOS,
+    SHEET_CAMPAIGNS_CLEANED,
+    SHEET_PRODUCT_AD
+]
+
 # Messages
 SUCCESS_MESSAGES = {
     "validation_passed": "Validation passed successfully",
     "cleaning_complete": "Data cleaning completed",
+    "structure_cleaning_complete": "Data structure cleaning completed",
     "processing_complete": "Processing completed successfully",
     "merge_complete": "Results merged successfully",
     "file_created": "Output file created successfully"
