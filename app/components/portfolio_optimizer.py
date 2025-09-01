@@ -191,7 +191,9 @@ class PortfolioOptimizerPage:
 
         if uploaded_file:
             # Process uploaded file
-            if st.session_state.portfolio_original_file != uploaded_file:
+            # Check if this is a different file than what's already processed
+            current_file = st.session_state.get("portfolio_original_file")
+            if current_file != uploaded_file:
                 with st.spinner("Reading file..."):
                     self._process_uploaded_file(uploaded_file)
 

@@ -184,16 +184,25 @@ class ResultsManager:
                     if df[column].dtype != 'object':
                         df[column] = df[column].astype('object')
                     
-                    # Then apply the update
-                    if isinstance(new_value, (int, float)) and str(new_value).replace('.', '').isdigit():
-                        # For numeric values, ensure proper conversion
-                        df.at[row_idx, column] = str(new_value).replace('.0', '') if str(new_value).endswith('.0') else str(new_value)
+                    # Apply update with special formatting for numeric fields
+                    if new_value is None or new_value == "":
+                        df.at[row_idx, column] = ""
                     else:
-                        # For string values, ensure string type
-                        df.at[row_idx, column] = str(new_value) if new_value is not None else ""
+                        # Convert to string and handle numeric formatting
+                        str_value = str(new_value)
+                        
+                        # Remove .0 suffix from numeric values
+                        if str_value.endswith('.0') and str_value.replace('.0', '').replace('-', '').isdigit():
+                            str_value = str_value.replace('.0', '')
+                        
+                        df.at[row_idx, column] = str_value
+                        
                 except Exception as e:
-                    # Fallback: force string conversion
-                    df.at[row_idx, column] = str(new_value) if new_value is not None else ""
+                    # Fallback: force string conversion with .0 removal
+                    str_value = str(new_value) if new_value is not None else ""
+                    if str_value.endswith('.0') and str_value.replace('.0', '').replace('-', '').isdigit():
+                        str_value = str_value.replace('.0', '')
+                    df.at[row_idx, column] = str_value
                     self.logger.warning(f"Dtype conversion issue for {column}, using fallback: {e}")
                 cells_updated += 1
 

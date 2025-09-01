@@ -33,29 +33,29 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
     
     @contract_validator
     def run(self, all_sheets: Dict[str, pd.DataFrame]) -> OptimizationResult:
-        """Run the empty portfolios optimization using exact 6-step logic."""
-        self.logger.info("Starting Empty Portfolios optimization with 6-step logic")
+        """Run the empty portfolios optimization using exact 6-step PRD logic."""
+        self.logger.info("Starting Empty Portfolios optimization with PRD-compliant 6-step logic")
         
         # Get required sheets
         campaigns_df = all_sheets[SHEET_CAMPAIGNS_CLEANED].copy()
         portfolios_df = all_sheets[SHEET_PORTFOLIOS].copy()
         
-        # Step 1: Add Camp Count column to Portfolios sheet
-        self.logger.info("Step 1: Adding Camp Count column")
+        # Step 1: Add Camp Count column to Portfolios sheet and populate for ALL rows
+        self.logger.info("PRD Step 1: Adding Camp Count column and populating for all rows")
         if COL_CAMP_COUNT not in portfolios_df.columns:
             portfolios_df[COL_CAMP_COUNT] = 0
         
         # Step 2: Calculate campaign counts for each portfolio using COUNTIFS logic
-        self.logger.info("Step 2: Calculating campaign counts using COUNTIFS logic")
+        self.logger.info("PRD Step 2: Calculating campaign counts using COUNTIFS logic")
         self._calculate_campaign_counts_countifs(portfolios_df, campaigns_df)
         
-        # Step 3: Create Old Portfolio Name column and backup original names
-        self.logger.info("Step 3: Creating Old Portfolio Name column and backing up names")
+        # Step 3: Create Old Portfolio Name column and backup original names for ALL rows
+        self.logger.info("PRD Step 3: Creating Old Portfolio Name column and backing up names for all rows")
         if COL_OLD_PORTFOLIO_NAME not in portfolios_df.columns:
             portfolios_df[COL_OLD_PORTFOLIO_NAME] = portfolios_df[COL_PORTFOLIO_NAME]
         
         # Step 4: Find empty portfolios and assign new numeric names
-        self.logger.info("Step 4: Finding empty portfolios and assigning new names")
+        self.logger.info("PRD Step 4: Finding empty portfolios and assigning new names")
         empty_portfolios_mask = self._find_empty_portfolios(portfolios_df)
         
         if not empty_portfolios_mask.any():
@@ -63,37 +63,44 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
             return self._create_empty_result()
         
         # Generate new numeric names
-        new_names = self._generate_new_numeric_names(portfolios_df, empty_portfolios_mask.sum())
+        empty_portfolio_indices = portfolios_df[empty_portfolios_mask].index.tolist()
+        new_names = self._generate_new_numeric_names(portfolios_df, len(empty_portfolio_indices))
         
-        # Apply new names to empty portfolios
-        empty_portfolio_indices = portfolios_df[empty_portfolios_mask].index
-        portfolios_df.loc[empty_portfolios_mask, COL_PORTFOLIO_NAME] = new_names
+        self.logger.info(f"PRD Step 4: Found {len(empty_portfolio_indices)} empty portfolios to rename")
         
-        self.logger.info(f"Found {len(empty_portfolio_indices)} empty portfolios to rename")
-        
-        # Create updates for ALL portfolio rows to populate new columns
+        # Create updates for ALL portfolios to populate new columns, plus special handling for empty portfolios
         updates = []
         
-        # First, update all portfolio rows with Camp Count and Old Portfolio Name
+        # First: Create updates for ALL portfolio rows to populate Camp Count and Old Portfolio Name
         for idx, row in portfolios_df.iterrows():
             if row[COL_ENTITY] == ENTITY_PORTFOLIO:
                 cell_changes = {
-                    COL_OLD_PORTFOLIO_NAME: str(row[COL_OLD_PORTFOLIO_NAME]),
-                    COL_CAMP_COUNT: str(int(row[COL_CAMP_COUNT]))  # Convert to string to match expected format
+                    COL_CAMP_COUNT: str(int(row[COL_CAMP_COUNT])),
+                    COL_OLD_PORTFOLIO_NAME: str(row[COL_OLD_PORTFOLIO_NAME])
                 }
                 
-                # Steps 5 & 6: For empty portfolios, add additional changes
+                # Check if this is an empty portfolio that needs renaming
                 if idx in empty_portfolio_indices:
-                    new_name = new_names[list(empty_portfolio_indices).index(idx)]
-                    cell_changes[COL_PORTFOLIO_NAME] = new_name
-                    cell_changes[COL_OPERATION] = OPERATION_UPDATE
-                    cell_changes[COL_BUDGET_POLICY] = BUDGET_POLICY_NO_CAP
+                    # This is an empty portfolio - rename it and apply special settings
+                    empty_idx_in_list = empty_portfolio_indices.index(idx)
+                    original_name = str(row[COL_PORTFOLIO_NAME])
+                    new_name = new_names[empty_idx_in_list]
                     
-                    # Step 6: Clear budget fields if they have values
-                    if pd.notna(row[COL_BUDGET_AMOUNT]) and str(row[COL_BUDGET_AMOUNT]).strip():
+                    self.logger.info(f"PRD Steps 5-6: Renaming empty portfolio '{original_name}' to '{new_name}' at index {idx}")
+                    
+                    # Add empty portfolio specific changes
+                    cell_changes.update({
+                        COL_PORTFOLIO_NAME: new_name,
+                        COL_OPERATION: OPERATION_UPDATE,
+                        COL_BUDGET_POLICY: BUDGET_POLICY_NO_CAP,
+                        COL_OLD_PORTFOLIO_NAME: original_name  # Store original name before change
+                    })
+                    
+                    # PRD Step 6: Clear budget fields if they have values
+                    if pd.notna(row[COL_BUDGET_AMOUNT]) and str(row[COL_BUDGET_AMOUNT]).strip() and str(row[COL_BUDGET_AMOUNT]).strip() != 'nan':
                         cell_changes[COL_BUDGET_AMOUNT] = ""
                     
-                    if pd.notna(row[COL_BUDGET_START_DATE]) and str(row[COL_BUDGET_START_DATE]).strip():
+                    if pd.notna(row[COL_BUDGET_START_DATE]) and str(row[COL_BUDGET_START_DATE]).strip() and str(row[COL_BUDGET_START_DATE]).strip() != 'nan':
                         cell_changes[COL_BUDGET_START_DATE] = ""
                 
                 update = CellUpdate(
@@ -104,34 +111,36 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
                 )
                 updates.append(update)
         
-        # Create patch
+        # Create patch - ONLY for empty portfolios
         patch = PatchData(
             sheet_name=SHEET_PORTFOLIOS,
             updates=updates
         )
         
         # Create result
+        total_portfolios = len(portfolios_df[portfolios_df[COL_ENTITY] == ENTITY_PORTFOLIO])
         result = OptimizationResult(
             result_type="portfolios",
             merge_keys=[COL_PORTFOLIO_ID],
             patch=patch,
             metrics={
-                "rows_checked": len(portfolios_df[portfolios_df[COL_ENTITY] == ENTITY_PORTFOLIO]),
-                "rows_updated": len(updates),
+                "rows_checked": total_portfolios,
+                "rows_updated": len(updates),  # All portfolios get updated with new columns
                 "cells_updated": sum(len(update.cell_changes) for update in updates),
                 "empty_portfolios_found": len(empty_portfolio_indices),
-                "portfolios_renamed": len(updates)
+                "portfolios_renamed": len(empty_portfolio_indices)
             },
             messages=[
-                f"Analyzed {len(portfolios_df)} portfolio rows",
-                f"Found {len(empty_portfolio_indices)} empty portfolios (Camp Count = 0)",
-                f"Renamed {len(updates)} portfolios with numeric names",
-                f"Updated Budget Policy to 'No Cap' for modified portfolios",
-                f"Cleared budget fields where necessary"
+                f"PRD Compliance: Analyzed {total_portfolios} portfolio rows",
+                f"PRD Compliance: Added Camp Count and Old Portfolio Name columns to all {total_portfolios} portfolios",
+                f"PRD Compliance: Found {len(empty_portfolio_indices)} empty portfolios (Camp Count = 0)",
+                f"PRD Compliance: Renamed {len(empty_portfolio_indices)} empty portfolios only",
+                f"PRD Compliance: Updated Budget Policy to 'No Cap' for {len(empty_portfolio_indices)} empty portfolios only",
+                f"PRD Compliance: Cleared budget fields where necessary for empty portfolios only"
             ]
         )
         
-        self.logger.info(f"Empty Portfolios optimization complete: {len(updates)} portfolios updated")
+        self.logger.info(f"PRD-compliant Empty Portfolios optimization complete: {len(updates)} portfolios updated (all with new columns, {len(empty_portfolio_indices)} renamed)")
         return result
     
     def _calculate_campaign_counts_countifs(self, portfolios_df: pd.DataFrame, campaigns_df: pd.DataFrame) -> None:
@@ -142,15 +151,22 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
         # For each portfolio, count campaigns with matching Portfolio ID
         for idx, row in portfolios_df.iterrows():
             if row[COL_ENTITY] == ENTITY_PORTFOLIO:
-                portfolio_id = str(row[COL_PORTFOLIO_ID])
+                portfolio_id = str(int(row[COL_PORTFOLIO_ID]))  # Convert to int first to remove any decimals
                 
                 # COUNTIFS equivalent: count campaigns where Portfolio ID matches
+                # Handle float Portfolio IDs in campaigns by converting to int then string
                 matching_campaigns = campaign_entities[
-                    campaign_entities[COL_PORTFOLIO_ID].astype(str) == portfolio_id
+                    campaign_entities[COL_PORTFOLIO_ID].apply(
+                        lambda x: str(int(float(x))) if pd.notna(x) else ''
+                    ) == portfolio_id
                 ]
                 count = len(matching_campaigns)
                 
                 portfolios_df.at[idx, COL_CAMP_COUNT] = count
+                
+                # Log for debugging
+                if row[COL_PORTFOLIO_NAME] == 'Test':
+                    self.logger.info(f"Test portfolio ID {portfolio_id}: found {count} campaigns")
     
     def _find_empty_portfolios(self, portfolios_df: pd.DataFrame) -> pd.Series:
         """Find portfolios that meet empty criteria (Step 4)."""

@@ -149,11 +149,15 @@ class PortfolioOptimizationOrchestrator:
         for sheet_name, df in all_sheets.items():
             cleaned_df = df.copy()
             
-            # Clean string columns
+            # Clean string columns and remove .0 suffixes from numeric strings
             for col in cleaned_df.columns:
                 if cleaned_df[col].dtype == 'object':
                     cleaned_df[col] = cleaned_df[col].astype(str).str.strip()
                     cleaned_df[col] = cleaned_df[col].replace('nan', '')
+                    
+                    # Remove .0 suffix from numeric strings (like "1.0" -> "1", "20250830.0" -> "20250830")
+                    mask = cleaned_df[col].str.endswith('.0') & cleaned_df[col].str.replace('.0', '').str.replace('-', '').str.isdigit()
+                    cleaned_df.loc[mask, col] = cleaned_df.loc[mask, col].str.replace('.0', '')
             
             cleaned[sheet_name] = cleaned_df
         

@@ -41,11 +41,14 @@ class PortfolioOptimizationService:
         # Prepare data for excel_writer
         prepared_data = {}
         for sheet_name, df in data.items():
+            # Determine if this sheet was modified (has updated indices)
+            was_modified = sheet_name in updated_indices and len(updated_indices[sheet_name]) > 0
+            
             # Clean data before writing
-            df_clean = self._prepare_dataframe(df)
+            df_clean = self._prepare_dataframe(df, sheet_name, was_modified)
             
             # Add highlighting information for excel_writer
-            if sheet_name in updated_indices:
+            if was_modified:
                 # Mark rows that need yellow highlighting
                 df_clean = self._mark_rows_for_highlighting(df_clean, updated_indices[sheet_name])
             
@@ -61,29 +64,57 @@ class PortfolioOptimizationService:
         self.logger.info(f"Created output file with {len(data)} sheets using excel_writer.py")
         return result
     
-    def _prepare_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _prepare_dataframe(self, df: pd.DataFrame, sheet_name: str, was_modified: bool) -> pd.DataFrame:
         """
         Prepare DataFrame for Excel output.
         
         Args:
             df: DataFrame to prepare
+            sheet_name: Name of the sheet being prepared
+            was_modified: Whether this sheet was modified by optimizations
             
         Returns:
             Cleaned DataFrame
         """
         df_clean = df.copy()
         
-        # Convert all columns to string to prevent scientific notation
-        for col in df_clean.columns:
-            if df_clean[col].dtype in ['float64', 'int64']:
-                # Check if it's an ID column (contains large numbers)
-                if 'ID' in col.upper() or 'id' in col.lower():
+        if was_modified:
+            # Only apply string conversion and .0 removal to modified sheets (like Portfolios)
+            for col in df_clean.columns:
+                if df_clean[col].dtype in ['float64', 'int64']:
+                    # Convert to string and remove .0 suffix from all numeric columns
                     df_clean[col] = df_clean[col].astype(str).str.replace('.0', '', regex=False)
-                else:
-                    df_clean[col] = df_clean[col].astype(str)
-            elif df_clean[col].dtype == 'object':
-                # Clean string columns
-                df_clean[col] = df_clean[col].fillna('').astype(str)
+                elif df_clean[col].dtype == 'object':
+                    # Clean string columns and remove .0 suffix from numeric strings
+                    df_clean[col] = df_clean[col].fillna('').astype(str)
+                    # Remove .0 suffix from numeric strings
+                    mask = df_clean[col].str.endswith('.0') & df_clean[col].str.replace('.0', '').str.replace('-', '').str.isdigit()
+                    df_clean.loc[mask, col] = df_clean.loc[mask, col].str.replace('.0', '')
+        else:
+            # For unmodified sheets (Campaigns, Product Ad), preserve original data types
+            # Only clean string columns minimally and handle floating point precision
+            for col in df_clean.columns:
+                if df_clean[col].dtype == 'float64':
+                    # Handle ID columns vs numeric columns differently
+                    if 'ID' in col.upper() or 'id' in col.lower():
+                        # ID columns should be converted to integers (no rounding)
+                        # Keep NaN as empty string, convert valid numbers to clean integers
+                        df_clean[col] = df_clean[col].apply(
+                            lambda x: str(int(x)) if pd.notna(x) else ''
+                        )
+                    else:
+                        # Non-ID numeric columns: preserve original precision to match expected output
+                        # The expected output actually contains the precision artifacts like "3.7399999999999998"
+                        # So we need to preserve these rather than rounding them
+                        pass  # Keep original float64 values
+                elif df_clean[col].dtype == 'object':
+                    # Only handle NaN values, don't change formatting
+                    df_clean[col] = df_clean[col].fillna('')
+                    # Only remove .0 from ID columns to prevent scientific notation
+                    if 'ID' in col.upper() or 'id' in col.lower():
+                        mask = (df_clean[col].astype(str).str.endswith('.0') & 
+                               df_clean[col].astype(str).str.replace('.0', '').str.replace('-', '').str.isdigit())
+                        df_clean.loc[mask, col] = df_clean[col].astype(str).str.replace('.0', '')
         
         # Remove any columns that start with underscore (internal columns)
         cols_to_remove = [col for col in df_clean.columns if col.startswith('_')]
