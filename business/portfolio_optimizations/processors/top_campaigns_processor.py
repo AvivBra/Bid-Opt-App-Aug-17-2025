@@ -5,7 +5,9 @@ import numpy as np
 from typing import Dict, List
 import logging
 from ..constants import (
-    SHEET_CAMPAIGNS_CLEANED, COL_ENTITY, COL_OPERATION, ENTITY_CAMPAIGN
+    SHEET_CAMPAIGNS_CLEANED, COL_ENTITY, COL_OPERATION, ENTITY_CAMPAIGN,
+    COL_PORTFOLIO_ID, COL_PORTFOLIO_NAME_INFO, OPERATION_UPDATE,
+    ORGANIZE_TOP_CAMPAIGNS_PORTFOLIO_ID
 )
 
 COL_ASIN_PA = "ASIN PA"
@@ -34,6 +36,7 @@ class TopCampaignsProcessor:
         5b. Create Top column
         5c. Create Top sheet with template data
         5d. Fill Top column with VLOOKUP logic
+        6. Update Portfolio IDs for matching campaigns
         
         Args:
             all_sheets: Dictionary of sheet name to DataFrame
@@ -62,6 +65,9 @@ class TopCampaignsProcessor:
         # Step 5d: Fill Top column with VLOOKUP logic
         self._fill_top_column(campaigns_df)
         
+        # Step 6: Update Portfolio IDs
+        self._update_portfolio_ids(campaigns_df)
+        
         self.logger.info("Top campaigns processing complete")
         return updated_sheets
     
@@ -72,8 +78,9 @@ class TopCampaignsProcessor:
         # Find ASIN PA column position
         asin_pa_col_idx = campaigns_df.columns.get_loc(COL_ASIN_PA)
         
-        # Insert Top column to the right of ASIN PA
-        campaigns_df.insert(asin_pa_col_idx + 1, COL_TOP, "")
+        # Insert Top column to the right of ASIN PA with NaN as default
+        # This matches the example file where non-matching campaigns have NaN in Top column
+        campaigns_df.insert(asin_pa_col_idx + 1, COL_TOP, pd.NA)
     
     def _create_top_sheet(self) -> pd.DataFrame:
         """Create Top sheet with template data."""
@@ -125,3 +132,53 @@ class TopCampaignsProcessor:
                 # If not found or empty, leave empty (default)
         
         self.logger.info(f"Top column filled: {matches_found} campaigns marked with 'v'")
+    
+    def _update_portfolio_ids(self, campaigns_df: pd.DataFrame) -> None:
+        """
+        Update Portfolio IDs for campaigns matching Part 2 criteria.
+        
+        Step 6: Portfolio ID Updates
+        - Criteria 1: Top = "v" AND Portfolio Name does NOT contain "manual"
+        - Criteria 2: Top = empty AND Portfolio Name contains "manual"
+        - Update: Portfolio ID = 198280442127929, Operation = "update"
+        """
+        self.logger.info("Starting Portfolio ID updates (Step 6)")
+        
+        # Convert Operation column to object type to avoid dtype warnings
+        if campaigns_df[COL_OPERATION].dtype != 'object':
+            campaigns_df[COL_OPERATION] = campaigns_df[COL_OPERATION].astype('object')
+        
+        total_updates = 0
+        
+        # Criteria 1: Top = "v" AND Portfolio Name does NOT contain "manual"
+        criteria1_mask = (
+            (campaigns_df[COL_TOP] == "v") &
+            (~campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("manual", na=False, case=False))
+        )
+        criteria1_campaigns = campaigns_df[criteria1_mask]
+        
+        # Update Portfolio ID and Operation for Criteria 1
+        # Cast Portfolio ID to match column dtype (float64)
+        campaigns_df.loc[criteria1_mask, COL_PORTFOLIO_ID] = float(ORGANIZE_TOP_CAMPAIGNS_PORTFOLIO_ID)
+        campaigns_df.loc[criteria1_mask, COL_OPERATION] = OPERATION_UPDATE
+        criteria1_count = len(criteria1_campaigns)
+        total_updates += criteria1_count
+        
+        self.logger.info(f"Criteria 1 (Top=v, not manual): {criteria1_count} campaigns updated")
+        
+        # Criteria 2: Top = empty AND Portfolio Name contains "manual"
+        criteria2_mask = (
+            (campaigns_df[COL_TOP].isna() | (campaigns_df[COL_TOP] == "")) &
+            (campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("manual", na=False, case=False))
+        )
+        criteria2_campaigns = campaigns_df[criteria2_mask]
+        
+        # Update Portfolio ID and Operation for Criteria 2
+        # Cast Portfolio ID to match column dtype (float64)
+        campaigns_df.loc[criteria2_mask, COL_PORTFOLIO_ID] = float(ORGANIZE_TOP_CAMPAIGNS_PORTFOLIO_ID)
+        campaigns_df.loc[criteria2_mask, COL_OPERATION] = OPERATION_UPDATE
+        criteria2_count = len(criteria2_campaigns)
+        total_updates += criteria2_count
+        
+        self.logger.info(f"Criteria 2 (Top=empty, manual): {criteria2_count} campaigns updated")
+        self.logger.info(f"Total Portfolio ID updates: {total_updates} campaigns")

@@ -54,6 +54,7 @@ OPERATION_DELETE = "delete"
 
 # Default values
 DEFAULT_PORTFOLIO_ID = "84453417629173"  # For campaigns without portfolios
+ORGANIZE_TOP_CAMPAIGNS_PORTFOLIO_ID = "198280442127929"  # For organize top campaigns optimization
 DEFAULT_BUDGET_AMOUNT = ""
 DEFAULT_BUDGET_START_DATE = ""
 DEFAULT_BUDGET_END_DATE = ""

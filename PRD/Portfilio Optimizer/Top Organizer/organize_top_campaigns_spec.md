@@ -1,7 +1,7 @@
-# Organize Top Campaigns - איפיון תהליך
+# Organize Top Campaigns - איפיון תהליך - חלק 1 מתוך 2
 
 **תאריך:** 01/09/2025  
-**שעה:** 14:00
+**שעה:** 19:30
 
 ## תיאור האופטימיזציה
 אופטימיזציה בעמוד Portfolio Optimizer בשם "Organize Top Campaigns".

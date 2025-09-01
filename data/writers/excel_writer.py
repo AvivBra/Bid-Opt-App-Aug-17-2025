@@ -215,14 +215,33 @@ class ExcelWriter:
                         'Portfolio ID', 'ASIN', 'Target ID'
                     ])
                     
-                    # Format ID columns as text to prevent scientific notation and decimal display
-                    if is_id_column:
+                    # Check if this is a column that should be converted to integer in the Campaign sheet
+                    is_integer_column = col_name in ['Start Date', 'Daily Budget', 'End Date'] and ws.title == 'Campaign'
+                    
+                    # Check if this is an ID column in Product Ad sheet that should be integer
+                    is_product_ad_id = (ws.title == 'Product Ad' and 
+                                      col_name in ['Ad Group ID', 'Ad ID'] and
+                                      isinstance(value, float) and value.is_integer())
+                    
+                    # Format ID columns as text to prevent scientific notation and decimal display  
+                    if is_id_column and ws.title == 'Campaign':
                         # Convert to integer first to remove decimals, then to string
                         if isinstance(value, float) and value.is_integer():
                             cell.value = str(int(value))
                         else:
                             cell.value = str(value)
                         cell.number_format = "@"  # Text format
+                    
+                    # Convert certain Campaign columns to integers
+                    elif is_integer_column:
+                        if isinstance(value, float) and value.is_integer():
+                            cell.value = int(value)
+                        else:
+                            cell.value = value
+                    
+                    # Convert Product Ad ID columns to integers  
+                    elif is_product_ad_id:
+                        cell.value = int(value)
                     
                     else:
                         cell.value = value

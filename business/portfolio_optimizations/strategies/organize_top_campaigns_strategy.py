@@ -83,11 +83,18 @@ class OrganizeTopCampaignsStrategy(OptimizationStrategy):
                 (final_campaigns["Top"] == "v")
             ])
         
-        # Create updates for the changes (this is mainly structural - new columns)
+        # Count campaigns with Portfolio ID updates (Step 6)
+        portfolio_updates = 0
+        if "Operation" in final_campaigns.columns:
+            portfolio_updates = len(final_campaigns[
+                (final_campaigns[COL_ENTITY] == ENTITY_CAMPAIGN) & 
+                (final_campaigns["Operation"] == "update")
+            ])
+        
+        # Create updates for the changes (includes new columns and Portfolio ID updates)
         updates = []
         
-        # Since this optimization primarily adds columns and filters rows,
-        # rather than updating existing cells, we'll track the structural changes
+        # Track changes for all campaigns
         for idx, row in final_campaigns.iterrows():
             if row[COL_ENTITY] == ENTITY_CAMPAIGN:
                 cell_changes = {}
@@ -96,6 +103,11 @@ class OrganizeTopCampaignsStrategy(OptimizationStrategy):
                 for col in new_columns:
                     if col in final_campaigns.columns:
                         cell_changes[col] = str(row[col]) if pd.notna(row[col]) else ""
+                
+                # Track Portfolio ID and Operation updates for Step 6
+                if pd.notna(row.get("Operation")) and str(row["Operation"]) == "update":
+                    cell_changes["Portfolio ID"] = str(row["Portfolio ID"]) if pd.notna(row["Portfolio ID"]) else ""
+                    cell_changes["Operation"] = str(row["Operation"])
                 
                 if cell_changes:
                     update = CellUpdate(
@@ -124,6 +136,7 @@ class OrganizeTopCampaignsStrategy(OptimizationStrategy):
                 "rows_filtered": original_campaign_rows - final_campaign_rows,
                 "columns_added": columns_added,
                 "campaigns_with_v_marks": campaigns_with_v,
+                "portfolio_id_updates": portfolio_updates,
                 "template_asins": len(self.template_data)
             },
             messages=[
@@ -131,6 +144,7 @@ class OrganizeTopCampaignsStrategy(OptimizationStrategy):
                 f"Added {columns_added} new columns: {', '.join(new_columns[:columns_added])}",
                 f"Filtered {original_campaign_rows - final_campaign_rows} rows based on portfolio rules and ads count",
                 f"Found {campaigns_with_v} campaigns matching top ASINs template",
+                f"Updated Portfolio IDs for {portfolio_updates} campaigns (Step 6)",
                 f"Created Top sheet with {len(self.template_data)} template ASINs",
                 "Applied COUNTIFS logic for Ads Count column",
                 "Applied VLOOKUP logic for ASIN PA and Top columns"
