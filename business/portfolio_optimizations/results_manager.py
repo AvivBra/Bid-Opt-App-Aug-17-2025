@@ -135,10 +135,11 @@ class ResultsManager:
                     continue
 
                 if column not in df.columns:
-                    self.logger.warning(
-                        f"Column {column} not found in sheet {sheet_name}"
+                    # Add new column if it doesn't exist
+                    self.logger.info(
+                        f"Adding new column {column} to sheet {sheet_name}"
                     )
-                    continue
+                    df[column] = ""
 
                 # Check for conflict
                 old_value = df.at[row_idx, column]

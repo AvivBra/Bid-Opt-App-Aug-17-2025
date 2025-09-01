@@ -14,10 +14,13 @@ COL_ENTITY = "Entity"
 COL_CAMPAIGN_ID = "Campaign ID"
 COL_PORTFOLIO_ID = "Portfolio ID"
 COL_PORTFOLIO_NAME = "Portfolio Name"
+COL_OLD_PORTFOLIO_NAME = "Old Portfolio Name"
+COL_CAMP_COUNT = "Camp Count"
 COL_OPERATION = "Operation"
 COL_BUDGET_AMOUNT = "Budget Amount"
 COL_BUDGET_START_DATE = "Budget Start Date"
 COL_BUDGET_END_DATE = "Budget End Date"
+COL_BUDGET_POLICY = "Budget Policy"
 
 # Protected columns that cannot be updated
 PROTECTED_COLUMNS = [
@@ -41,9 +44,10 @@ DEFAULT_PORTFOLIO_ID = "84453417629173"  # For campaigns without portfolios
 DEFAULT_BUDGET_AMOUNT = ""
 DEFAULT_BUDGET_START_DATE = ""
 DEFAULT_BUDGET_END_DATE = ""
+BUDGET_POLICY_NO_CAP = "No Cap"
 
 # Excluded portfolio names
-EXCLUDED_PORTFOLIO_NAMES = ["Paused", "Terminal"]
+EXCLUDED_PORTFOLIO_NAMES = ["Paused", "Terminal", "Top Terminal"]
 
 # Highlighting
 HIGHLIGHT_COLOR = "FFFF00"  # Yellow for modified rows
