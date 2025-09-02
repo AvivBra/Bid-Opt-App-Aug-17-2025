@@ -59,9 +59,17 @@ class AsinMatcher:
         # Find Operation column position
         operation_col_idx = campaigns_df.columns.get_loc(COL_OPERATION)
         
-        # Insert ASIN PA column to the right of Operation column (position 3)
-        # Per spec: "מוסיפים עמודה מימין לעמודה Operation"
-        asin_pa_position = operation_col_idx + 1  # Right after Operation
+        # Insert ASIN PA column to the right of Ads Count column
+        # Per spec sequence: Operation -> Ads Count -> ASIN PA -> Top
+        # Ads Count should already be at operation_col_idx + 1 by now
+        ads_count_col_name = "Ads Count"
+        if ads_count_col_name in campaigns_df.columns:
+            ads_count_col_idx = campaigns_df.columns.get_loc(ads_count_col_name)
+            asin_pa_position = ads_count_col_idx + 1  # Right after Ads Count
+        else:
+            # Fallback if Ads Count not found (shouldn't happen)
+            asin_pa_position = operation_col_idx + 1  # Right after Operation
+        
         campaigns_df.insert(asin_pa_position, COL_ASIN_PA, "")
         
         # Create lookup dictionary from Product Ad sheet for faster matching

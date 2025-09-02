@@ -1,0 +1,47 @@
+# Organize Top Campaigns Integration Test Specification
+
+## Test-Fix Loop (Allowed Code Files)
+
+**Allowed for automatic fixes:**
+business/portfolio_optimizations/strategies/organize_top_campaigns_strategy.py
+
+
+**Process:** Automatically identify and fix issues in these files, then retest until success criteria are met.
+
+## Test-Report (Non-Editable Files)
+
+**Not allowed for automatic fixes:**
+All the rest except from those mentioned as Allowed for automatic fixes
+
+**Process:** Generate detailed report for user review - never modify these files.
+
+## Success Criteria
+The test-fix loop continues until all 3 criteria are met:
+
+### a. 100% Compliance with Spec
+100% compliance with the relevant spec in:
+PRD/Portfilio Optimizer/Top Organizer
+
+### b. Identical Output File  
+App outcome file at the end of the simulation is identical to the example file in 
+PRD/Portfilio Optimizer/Excel Examples/Output Bulk Example for Organize Top Campaigns part1+2.xlsx
+
+### c. Real User Simulation
+The test was operated by simulating a real user operation of the app via Playwright MCP according to this spec: PRD/Playwright/How to
+
+
+ca
+  Key Requirements:
+  1. Same sheet structure (identical sheet names and order)
+  2. Same dimensions (identical rows × columns per sheet)
+  3. Same column headers (identical column names and order)
+  4. Same cell content (exact string match after standardized loading)
+  5. Exclude dynamic fields (file names with timestamps, generation dates)
+
+  Verification Method:
+  pd.read_excel(file, sheet_name=None, dtype=str, na_filter=False)
+  # Then cell-by-cell string comparison: str(actual_cell) == str(expected_cell)
+
+Only if all have v - you reached 100% success. If not than keep fixing. If youmust stop - report partial success and explain what was not met. 
+
+If you stop before 100% success - you should provide a good reason for it - eather you needed help from me, or passed 10 trials of fixing something with no success

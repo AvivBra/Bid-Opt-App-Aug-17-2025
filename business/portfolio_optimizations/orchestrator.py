@@ -68,13 +68,18 @@ class PortfolioOptimizationOrchestrator:
                             "messages": result.messages
                         }
                         
-                        # Check if strategy created additional sheets (for Organize Top Campaigns)
+                        # Check if strategy created additional sheets or modified existing ones
                         if hasattr(strategy, 'get_updated_sheets'):
                             updated_sheets = strategy.get_updated_sheets()
                             for sheet_name, sheet_df in updated_sheets.items():
                                 if sheet_name not in cleaned_sheets:
+                                    # New sheet created by strategy
                                     additional_sheets[sheet_name] = sheet_df
                                     self.logger.info(f"Strategy {strategy_name} created additional sheet: {sheet_name}")
+                                else:
+                                    # Existing sheet modified by strategy - replace it
+                                    cleaned_sheets[sheet_name] = sheet_df
+                                    self.logger.info(f"Strategy {strategy_name} modified existing sheet: {sheet_name}")
                                     
                 except Exception as e:
                     self.logger.error(f"Optimization {strategy_name} failed: {str(e)}")

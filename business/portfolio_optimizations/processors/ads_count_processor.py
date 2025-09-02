@@ -78,10 +78,9 @@ class AdsCountProcessor:
         if hotfix_filtered > 0:
             self.logger.info(f"HOTFIX: Filtered additional {hotfix_filtered} problematic campaigns")
         
-        # Step 5: Remove the temporary Ads Count column (it was only for filtering)
-        if COL_ADS_COUNT in campaigns_df_final.columns:
-            campaigns_df_final.drop(columns=[COL_ADS_COUNT], inplace=True)
-            self.logger.info("Removed temporary Ads Count column after filtering")
+        # Step 5: Keep the Ads Count column in the final output (per spec requirement)
+        # The Ads Count column should remain visible in the final output file
+        self.logger.info("Keeping Ads Count column in final output as per spec")
         
         updated_sheets[SHEET_CAMPAIGNS_CLEANED] = campaigns_df_final
         

@@ -340,14 +340,24 @@ class ResultsManager:
         self.logger.info("DEBUG: _create_terminal_sheet_if_needed called")
         from .constants import SHEET_CAMPAIGNS_CLEANED, SHEET_TERMINAL, COL_CAMPAIGN_ID
         
-        # Check if campaigns_without_portfolios optimization was run and get the result
+        # Check if campaigns_without_portfolios optimization was run specifically
         campaigns_result = None
         self.logger.info(f"DEBUG: Checking {len(optimization_results)} optimization results")
         for result in optimization_results:
             self.logger.info(f"DEBUG: Result type: {getattr(result, 'result_type', 'NO_TYPE')}")
-            if hasattr(result, 'result_type') and result.result_type == "campaigns":
-                campaigns_result = result
-                break
+            # Only create Terminal sheet for campaigns_without_portfolios, not organize_top_campaigns
+            if (hasattr(result, 'result_type') and result.result_type == "campaigns" and
+                hasattr(result, 'patch') and hasattr(result.patch, 'sheet_name') and 
+                result.patch.sheet_name == "Campaign"):
+                # Additional check to ensure this is campaigns_without_portfolios
+                # by checking if the strategy name or messages contain the right indication
+                is_campaigns_without_portfolios = any(
+                    'without portfolios' in str(msg).lower() or 'campaigns_without_portfolios' in str(msg).lower()
+                    for msg in getattr(result, 'messages', [])
+                )
+                if is_campaigns_without_portfolios:
+                    campaigns_result = result
+                    break
         
         if campaigns_result is None:
             self.logger.info("Campaigns without portfolios optimization not run, skipping Terminal sheet creation")

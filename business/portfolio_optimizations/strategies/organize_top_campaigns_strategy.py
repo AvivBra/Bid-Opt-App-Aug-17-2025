@@ -91,32 +91,29 @@ class OrganizeTopCampaignsStrategy(OptimizationStrategy):
                 (final_campaigns["Operation"] == "update")
             ])
         
-        # Create updates for the changes (includes new columns and Portfolio ID updates)
+        # Since we're replacing entire sheets via get_updated_sheets(), 
+        # we only track actual Operation="update" changes for reporting
         updates = []
         
-        # Track changes for all campaigns
-        for idx, row in final_campaigns.iterrows():
-            if row[COL_ENTITY] == ENTITY_CAMPAIGN:
-                cell_changes = {}
-                
-                # Add the new column values
-                for col in new_columns:
-                    if col in final_campaigns.columns:
-                        cell_changes[col] = str(row[col]) if pd.notna(row[col]) else ""
-                
-                # Track Portfolio ID and Operation updates for Step 6
-                if pd.notna(row.get("Operation")) and str(row["Operation"]) == "update":
-                    cell_changes["Portfolio ID"] = str(row["Portfolio ID"]) if pd.notna(row["Portfolio ID"]) else ""
-                    cell_changes["Operation"] = str(row["Operation"])
-                
-                if cell_changes:
-                    update = CellUpdate(
-                        row_index=idx,
-                        key_column=COL_CAMPAIGN_ID,
-                        key_value=str(row[COL_CAMPAIGN_ID]),
-                        cell_changes=cell_changes
-                    )
-                    updates.append(update)
+        # Track only the campaigns that had their Portfolio ID/Operation updated
+        campaigns_with_updates = final_campaigns[
+            (final_campaigns[COL_ENTITY] == ENTITY_CAMPAIGN) & 
+            (final_campaigns["Operation"] == "update")
+        ]
+        
+        for idx, row in campaigns_with_updates.iterrows():
+            cell_changes = {
+                "Portfolio ID": str(row["Portfolio ID"]) if pd.notna(row["Portfolio ID"]) else "",
+                "Operation": str(row["Operation"])
+            }
+            
+            update = CellUpdate(
+                row_index=idx,
+                key_column=COL_CAMPAIGN_ID,
+                key_value=str(row[COL_CAMPAIGN_ID]),
+                cell_changes=cell_changes
+            )
+            updates.append(update)
         
         # Create patch
         patch = PatchData(
