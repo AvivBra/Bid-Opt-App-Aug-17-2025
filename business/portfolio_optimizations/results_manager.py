@@ -69,6 +69,11 @@ class ResultsManager:
         for sheet, indices in self.updated_indices.items():
             total_rows_updated += len(indices)
 
+        # Create Terminal sheet if campaigns were modified
+        print("TERMINAL DEBUG: About to call _create_terminal_sheet_if_needed")
+        self._create_terminal_sheet_if_needed(merged_data, optimization_results)
+        print("TERMINAL DEBUG: Finished calling _create_terminal_sheet_if_needed")
+
         # Check time limit
         elapsed_time = time.time() - start_time
         if elapsed_time > MAX_MERGE_TIME_SECONDS:
@@ -322,3 +327,102 @@ class ResultsManager:
             "user_message": overall_msg,
             "severity": severity
         }
+    
+    def _create_terminal_sheet_if_needed(self, merged_data: Dict[str, pd.DataFrame], optimization_results: List[Any]):
+        """
+        Create Terminal sheet and move modified campaigns there if campaigns_without_portfolios was run.
+        
+        Args:
+            merged_data: The merged data to modify
+            optimization_results: List of optimization results to check
+        """
+        print("TERMINAL DEBUG: _create_terminal_sheet_if_needed method called!")
+        self.logger.info("DEBUG: _create_terminal_sheet_if_needed called")
+        from .constants import SHEET_CAMPAIGNS_CLEANED, SHEET_TERMINAL, COL_CAMPAIGN_ID
+        
+        # Check if campaigns_without_portfolios optimization was run and get the result
+        campaigns_result = None
+        self.logger.info(f"DEBUG: Checking {len(optimization_results)} optimization results")
+        for result in optimization_results:
+            self.logger.info(f"DEBUG: Result type: {getattr(result, 'result_type', 'NO_TYPE')}")
+            if hasattr(result, 'result_type') and result.result_type == "campaigns":
+                campaigns_result = result
+                break
+        
+        if campaigns_result is None:
+            self.logger.info("Campaigns without portfolios optimization not run, skipping Terminal sheet creation")
+            return
+        
+        # Check if Campaign sheet exists
+        if SHEET_CAMPAIGNS_CLEANED not in merged_data:
+            self.logger.warning(f"Sheet {SHEET_CAMPAIGNS_CLEANED} not found, cannot create Terminal sheet")
+            return
+        
+        campaigns_df = merged_data[SHEET_CAMPAIGNS_CLEANED].copy()
+        
+        # Extract Campaign IDs from the optimization result instead of using row indices
+        # This ensures we get exactly the campaigns that were targeted by the optimization
+        updated_campaign_ids = []
+        for update in campaigns_result.patch.updates:
+            updated_campaign_ids.append(str(update.key_value))
+        
+        self.logger.info(f"DEBUG: Campaign IDs from optimization result: {updated_campaign_ids}")
+        
+        if not updated_campaign_ids:
+            self.logger.info("No campaign IDs found in optimization result, skipping Terminal sheet creation")
+            return
+        
+        # Find campaigns by Campaign ID (not by row index)
+        campaign_id_mask = campaigns_df[COL_CAMPAIGN_ID].astype(str).isin(updated_campaign_ids)
+        terminal_campaigns = campaigns_df[campaign_id_mask]
+        
+        if len(terminal_campaigns) == 0:
+            self.logger.warning("No campaigns found matching the updated Campaign IDs")
+            return
+        
+        self.logger.info(f"Creating Terminal sheet with {len(terminal_campaigns)} campaigns using Campaign ID matching")
+        self.logger.info(f"Terminal Campaign IDs: {terminal_campaigns[COL_CAMPAIGN_ID].astype(str).tolist()}")
+        
+        # Create Terminal sheet with campaigns found by Campaign ID
+        terminal_df = terminal_campaigns.copy()
+        
+        # Ensure all Terminal sheet campaigns have Operation = "update"
+        # This is critical for bulk upload - all campaigns in Terminal sheet must have Operation = "update"
+        from .constants import COL_OPERATION, OPERATION_UPDATE
+        
+        # Force set Operation = "update" using multiple approaches to ensure it works
+        try:
+            # Method 1: Direct assignment
+            terminal_df[COL_OPERATION] = OPERATION_UPDATE
+            
+            # Method 2: Explicit row-by-row assignment as backup
+            for idx in range(len(terminal_df)):
+                terminal_df.iloc[idx, terminal_df.columns.get_loc(COL_OPERATION)] = OPERATION_UPDATE
+            
+            # Method 3: Reset index and assign (in case of index issues)
+            terminal_df = terminal_df.reset_index(drop=True)
+            terminal_df[COL_OPERATION] = OPERATION_UPDATE
+            
+            self.logger.info(f"Successfully set Operation = '{OPERATION_UPDATE}' for all {len(terminal_df)} Terminal campaigns using multiple methods")
+            
+            # Verify the fix worked
+            operation_values = terminal_df[COL_OPERATION].tolist()
+            non_update_count = sum(1 for val in operation_values if pd.isna(val) or str(val) != OPERATION_UPDATE)
+            if non_update_count > 0:
+                self.logger.error(f"FAILED: {non_update_count} rows still don't have Operation='{OPERATION_UPDATE}': {operation_values}")
+            else:
+                self.logger.info(f"SUCCESS: All {len(terminal_df)} rows have Operation='{OPERATION_UPDATE}'")
+                
+        except Exception as e:
+            self.logger.error(f"Error setting Operation column: {e}")
+            # Fallback: create new DataFrame with explicit Operation column
+            terminal_df[COL_OPERATION] = OPERATION_UPDATE
+        
+        # Remove modified campaigns from original Campaign sheet using Campaign ID matching
+        campaigns_df_filtered = campaigns_df[~campaign_id_mask].copy()
+        
+        # Update the merged data
+        merged_data[SHEET_CAMPAIGNS_CLEANED] = campaigns_df_filtered
+        merged_data[SHEET_TERMINAL] = terminal_df
+        
+        self.logger.info(f"Terminal sheet created: {len(terminal_df)} rows moved, {len(campaigns_df_filtered)} rows remain in Campaign sheet")

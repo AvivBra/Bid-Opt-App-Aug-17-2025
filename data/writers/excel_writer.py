@@ -87,8 +87,8 @@ class ExcelWriter:
             if "Sheet" in wb.sheetnames:
                 wb.remove(wb["Sheet"])
 
-            # Define expected sheet order for Organize Top Campaigns
-            expected_order = ['Portfolios', 'Campaign', 'Top', 'Product Ad', 'Sheet3']
+            # Define expected sheet order for Portfolio Optimizer
+            expected_order = ['Portfolios', 'Product Ad', 'Campaign', 'Terminal', 'Top', 'Sheet3']
             
             # Reorder sheets according to expected order, then add any remaining sheets
             ordered_sheets = []
@@ -121,7 +121,7 @@ class ExcelWriter:
 
                 # Remove internal columns before writing
                 df_to_write = df.copy()
-                internal_columns = ["_needs_highlight", "_needs_pink_highlight", "_error_type"]
+                internal_columns = ["_needs_highlight", "_needs_pink_highlight", "_error_type", "Camp Count", "Old Portfolio Name"]
                 for col in internal_columns:
                     if col in df_to_write.columns:
                         df_to_write = df_to_write.drop(columns=[col])
@@ -206,13 +206,21 @@ class ExcelWriter:
                 # Convert value to appropriate type
                 col_name = df.columns[col_idx - 1]
                 
+                # DEBUG: Check what type of data we're getting for ID columns and problematic columns
+                is_id_col_debug = any(id_keyword in col_name for id_keyword in [
+                    'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                    'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
+                ])
+                if (is_id_col_debug or col_name in ['Budget Amount', 'Budget Start Date', 'Daily Budget', 'Start Date']) and row_idx <= 3:
+                    print(f'[DEBUG excel_writer] {ws.title}.{col_name}[{row_idx-2}]: {repr(value)} (type: {type(value)}) ID_COLUMN: {is_id_col_debug}')
+                
                 if pd.isna(value):
                     cell.value = ""
                 elif isinstance(value, (int, float)):
                     # Check if this is an ID column that should be formatted as text
                     is_id_column = any(id_keyword in col_name for id_keyword in [
                         'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
-                        'Portfolio ID', 'ASIN', 'Target ID'
+                        'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
                     ])
                     
                     # Check if this is a column that should be converted to integer in the Campaign sheet
@@ -224,7 +232,7 @@ class ExcelWriter:
                                       isinstance(value, float) and value.is_integer())
                     
                     # Format ID columns as text to prevent scientific notation and decimal display  
-                    if is_id_column and ws.title == 'Campaign':
+                    if is_id_column:
                         # Convert to integer first to remove decimals, then to string
                         if isinstance(value, float) and value.is_integer():
                             cell.value = str(int(value))
@@ -258,16 +266,17 @@ class ExcelWriter:
                             "calc3",
                         ]:
                             cell.number_format = "0.000"
-                        # Apply 2 decimal places for financial columns to prevent precision issues
+                        # For financial columns, preserve exact values including precision artifacts
                         elif col_name in ["Spend", "Sales", "Cost", "Revenue"]:
-                            cell.number_format = "0.00"
+                            # Don't apply number formatting - let the original string values be preserved
+                            cell.number_format = "General"
                         else:
                             cell.number_format = "General"
                 elif isinstance(value, str):
                     # Handle string values - force text format for ID columns
                     is_id_column = any(id_keyword in col_name for id_keyword in [
                         'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
-                        'Portfolio ID', 'ASIN', 'Target ID'
+                        'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
                     ])
                     
                     if is_id_column:
@@ -401,3 +410,18 @@ class ExcelWriter:
         """
         self.logger.info("Adding Top sheet to workbook")
         self.template_writer.write_top_sheet_to_excel(workbook, top_asins_df)
+    
+    def create_campaign_optimizer_1_file(self, processed_data: Dict[str, pd.DataFrame]) -> BytesIO:
+        """
+        Create Campaign Optimizer 1 output file with proper formatting.
+        
+        Args:
+            processed_data: Dictionary of sheet_name -> DataFrame
+            
+        Returns:
+            BytesIO object containing the Excel file
+        """
+        self.logger.info("Creating Campaign Optimizer 1 output file")
+        
+        # Use the standard write_excel method
+        return self.write_excel(processed_data, "campaign_optimizer_1_output.xlsx")

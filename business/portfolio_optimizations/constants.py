@@ -9,6 +9,7 @@ SHEET_BRANDS = "Sponsored Brands Campaigns"
 SHEET_CAMPAIGNS_CLEANED = "Campaign"
 SHEET_PRODUCT_AD = "Product Ad"
 SHEET_TOP = "Top"
+SHEET_TERMINAL = "Terminal"
 
 # Column names
 COL_ENTITY = "Entity"

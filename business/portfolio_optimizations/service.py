@@ -81,40 +81,100 @@ class PortfolioOptimizationService:
         if was_modified:
             # Only apply string conversion and .0 removal to modified sheets (like Portfolios)
             for col in df_clean.columns:
+                # Use comprehensive ID detection for consistent formatting
+                is_id_column = any(id_keyword in col for id_keyword in [
+                    'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                    'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
+                ])
+                
                 if df_clean[col].dtype in ['float64', 'int64']:
-                    # Convert to string and remove .0 suffix from all numeric columns
-                    df_clean[col] = df_clean[col].astype(str).str.replace('.0', '', regex=False)
+                    if is_id_column:
+                        # ID columns: clean integer conversion to prevent scientific notation
+                        df_clean[col] = df_clean[col].apply(
+                            lambda x: str(int(x)) if pd.notna(x) and not pd.isna(x) else ''
+                        )
+                    else:
+                        # Non-ID numeric columns: check if they should be integers (like dates and budgets)
+                        is_integer_column = col in ['Budget Amount', 'Budget Start Date', 'Daily Budget', 'Start Date', 'End Date'] or 'Date' in col or 'Budget' in col
+                        
+                        if is_integer_column:
+                            # Convert to integer first, then to string to remove .0
+                            def clean_integer(x):
+                                if pd.isna(x) or pd.isnull(x):
+                                    return ''
+                                try:
+                                    return str(int(float(x)))
+                                except (ValueError, TypeError):
+                                    return ''
+                            df_clean[col] = df_clean[col].apply(clean_integer)
+                        else:
+                            # Other numeric columns: convert to string and remove .0 suffix for simple integers
+                            df_clean[col] = df_clean[col].apply(
+                                lambda x: str(int(x)) if pd.notna(x) and not pd.isna(x) and str(x) != '' and float(x).is_integer() else (str(x) if pd.notna(x) else '')
+                            )
                 elif df_clean[col].dtype == 'object':
                     # Clean string columns and remove .0 suffix from numeric strings
                     df_clean[col] = df_clean[col].fillna('').astype(str)
-                    # Remove .0 suffix from numeric strings
-                    mask = df_clean[col].str.endswith('.0') & df_clean[col].str.replace('.0', '').str.replace('-', '').str.isdigit()
-                    df_clean.loc[mask, col] = df_clean.loc[mask, col].str.replace('.0', '')
+                    if is_id_column:
+                        # Extra ID column cleaning for consistent text format
+                        mask = df_clean[col].str.endswith('.0') & df_clean[col].str.replace('.0', '').str.replace('-', '').str.isdigit()
+                        df_clean.loc[mask, col] = df_clean.loc[mask, col].str.replace('.0', '')
+                    else:
+                        # Remove .0 suffix from numeric strings in non-ID columns
+                        mask = df_clean[col].str.endswith('.0') & df_clean[col].str.replace('.0', '').str.replace('-', '').str.isdigit()
+                        df_clean.loc[mask, col] = df_clean.loc[mask, col].str.replace('.0', '')
         else:
             # For unmodified sheets (Campaigns, Product Ad), preserve original data types
             # Only clean string columns minimally and handle floating point precision
             for col in df_clean.columns:
                 if df_clean[col].dtype == 'float64':
-                    # Handle ID columns vs numeric columns differently
-                    if 'ID' in col.upper() or 'id' in col.lower():
-                        # ID columns should be converted to integers (no rounding)
-                        # Keep NaN as empty string, convert valid numbers to clean integers
+                    # Handle ID columns vs numeric columns differently with comprehensive ID detection
+                    is_id_column = any(id_keyword in col for id_keyword in [
+                        'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                        'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
+                    ])
+                    
+                    if is_id_column:
+                        # ID columns should be converted to clean text format to prevent scientific notation
+                        # Keep NaN as empty string, convert valid numbers to clean text
                         df_clean[col] = df_clean[col].apply(
-                            lambda x: str(int(x)) if pd.notna(x) else ''
+                            lambda x: str(int(x)) if pd.notna(x) and not pd.isna(x) else ''
                         )
                     else:
-                        # Non-ID numeric columns: preserve original precision to match expected output
-                        # The expected output actually contains the precision artifacts like "3.7399999999999998"
-                        # So we need to preserve these rather than rounding them
-                        pass  # Keep original float64 values
+                        # Non-ID numeric columns: handle integer columns vs precision columns differently
+                        is_integer_column = col in ['Budget Amount', 'Budget Start Date', 'Daily Budget', 'Start Date', 'End Date'] or 'Date' in col or 'Budget' in col
+                        
+                        if is_integer_column:
+                            # Convert integer columns to clean integer strings
+                            def clean_integer(x):
+                                if pd.isna(x) or pd.isnull(x):
+                                    return ''
+                                try:
+                                    return str(int(float(x)))
+                                except (ValueError, TypeError):
+                                    return ''
+                            df_clean[col] = df_clean[col].apply(clean_integer)
+                        else:
+                            # For precision columns, convert integers to clean format but preserve precision artifacts for floats
+                            df_clean[col] = df_clean[col].apply(
+                                lambda x: str(int(x)) if pd.notna(x) and not pd.isna(x) and str(x) != '' and float(x).is_integer() else (str(x) if pd.notna(x) else '')
+                            )
                 elif df_clean[col].dtype == 'object':
                     # Only handle NaN values, don't change formatting
                     df_clean[col] = df_clean[col].fillna('')
-                    # Only remove .0 from ID columns to prevent scientific notation
-                    if 'ID' in col.upper() or 'id' in col.lower():
+                    # Use comprehensive ID detection and clean formatting to prevent scientific notation
+                    is_id_column = any(id_keyword in col for id_keyword in [
+                        'Product Targeting ID', 'Campaign ID', 'Ad Group ID', 'Keyword ID', 
+                        'Portfolio ID', 'ASIN', 'Target ID', 'Ad ID', 'ID'
+                    ])
+                    
+                    if is_id_column:
+                        # Clean ID columns: remove .0 suffix and ensure text format
                         mask = (df_clean[col].astype(str).str.endswith('.0') & 
                                df_clean[col].astype(str).str.replace('.0', '').str.replace('-', '').str.isdigit())
                         df_clean.loc[mask, col] = df_clean[col].astype(str).str.replace('.0', '')
+                        # Force all ID values to be clean strings to prevent scientific notation
+                        df_clean[col] = df_clean[col].astype(str)
         
         # Remove any columns that start with underscore (internal columns)
         cols_to_remove = [col for col in df_clean.columns if col.startswith('_')]

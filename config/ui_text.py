@@ -14,6 +14,11 @@ CAMPAIGN_WELCOME_SUBTITLE = (
     "Upload your Template file to create new campaigns bulk file."
 )
 
+# Campaign Optimizer 1 titles
+CAMPAIGN_OPTIMIZER_1_TITLE = "Campaign Optimizer 1"
+CAMPAIGN_OPTIMIZER_1_WELCOME = "Welcome to Campaign Optimizer 1"
+CAMPAIGN_OPTIMIZER_1_SUBTITLE = "Optimize campaign budgets based on 7-day performance data"
+
 # Section headers
 UPLOAD_SECTION_TITLE = "Upload Files"
 VALIDATION_SECTION_TITLE = "Data Validation"
@@ -34,6 +39,11 @@ RESET_BUTTON = "Reset Session"
 UPLOAD_DATA_ROVA_BUTTON = "Data Rova"
 UPLOAD_DATA_DIVE_BUTTON = "Data Dive"
 DOWNLOAD_CAMPAIGN_BULK_BUTTON = "Download Campaign Bulk File"
+
+# Campaign Optimizer 1 specific
+SEVEN_DAYS_BUDGETS_CHECKBOX = "7 Days Budgets"
+BULK_7_BUTTON = "Bulk 7"
+DOWNLOAD_OPTIMIZED_CAMPAIGNS_BUTTON = "📥 Download Optimized Campaigns"
 
 # File upload help text
 TEMPLATE_UPLOAD_HELP = (

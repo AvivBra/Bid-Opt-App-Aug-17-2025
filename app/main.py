@@ -12,6 +12,7 @@ from app.state.session_manager import SessionManager
 from app.components.bid_optimizer import BidOptimizerPage
 from app.components.campaign_optimizer import CampaignOptimizerPage
 from app.components.portfolio_optimizer import PortfolioOptimizerPage
+from app.components.campaign_optimizer_1 import render_campaign_optimizer_1
 
 
 def main():
@@ -31,7 +32,7 @@ def main():
     # Sidebar navigation
     page_selection = st.sidebar.radio(
         "",
-        ["Bid Optimizer", "Portfolio Optimizer", "Campaign Creator"],
+        ["Bid Optimizer", "Campaign Optimizer 1", "Portfolio Optimizer", "Campaign Creator"],
         index=0
     )
 
@@ -39,6 +40,8 @@ def main():
     if page_selection == "Bid Optimizer":
         page = BidOptimizerPage()
         page.render()
+    elif page_selection == "Campaign Optimizer 1":
+        render_campaign_optimizer_1()
     elif page_selection == "Portfolio Optimizer":
         page = PortfolioOptimizerPage()
         page.render()

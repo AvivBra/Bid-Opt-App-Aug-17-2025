@@ -18,13 +18,10 @@ def render_sidebar():
             st.session_state.current_page = "Bid Optimizer"
             st.rerun()
 
-        # Campaigns Optimizer (disabled)
-        st.button(
-            "Campaigns Optimizer",
-            key="btn_campaigns",
-            use_container_width=True,
-            disabled=True,
-        )
+        # Campaign Optimizer 1 button
+        if st.button("Campaign Optimizer 1", key="btn_campaign_optimizer_1", use_container_width=True):
+            st.session_state.current_page = "Campaign Optimizer 1"
+            st.rerun()
 
         # Portfolio Optimizer button
         if st.button("Portfolio Optimizer", key="btn_portfolio", use_container_width=True):

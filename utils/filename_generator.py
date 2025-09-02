@@ -15,6 +15,12 @@ def generate_template_filename() -> str:
     return "Bid_Optimizer_Template.xlsx"
 
 
+def generate_campaign_optimizer_1_filename() -> str:
+    """Generate timestamped filename for Campaign Optimizer 1 output files."""
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return f"campaign-optimizer-1-{timestamp}.xlsx"
+
+
 def generate_backup_filename(original_filename: str) -> str:
     """Generate backup filename with timestamp."""
     name, ext = original_filename.rsplit('.', 1) if '.' in original_filename else (original_filename, '')

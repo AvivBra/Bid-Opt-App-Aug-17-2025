@@ -3,8 +3,17 @@
 import streamlit as st
 from app.ui.sidebar_backup import render_sidebar, get_current_page
 from app.ui.layout import apply_custom_css
-from app.pages.bid_optimizer import BidOptimizerPage
+from app.components.bid_optimizer import BidOptimizerPage
 from app.components.portfolio_optimizer import PortfolioOptimizerPage
+from app.components.campaign_optimizer_1 import render_campaign_optimizer_1
+
+
+class CampaignOptimizer1Page:
+    """Wrapper for Campaign Optimizer 1 component."""
+    
+    def render(self):
+        """Render Campaign Optimizer 1 page."""
+        render_campaign_optimizer_1()
 
 
 class Navigation:
@@ -13,7 +22,7 @@ class Navigation:
     def __init__(self):
         self.pages = {
             "Bid Optimizer": BidOptimizerPage(),
-            "Campaigns Optimizer": None,  # TBC - Phase 2+
+            "Campaign Optimizer 1": CampaignOptimizer1Page(),
             "Portfolio Optimizer": PortfolioOptimizerPage(),
         }
 
