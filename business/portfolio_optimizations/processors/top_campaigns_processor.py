@@ -68,6 +68,9 @@ class TopCampaignsProcessor:
         # Step 6: Update Portfolio IDs
         self._update_portfolio_ids(campaigns_df)
         
+        # Step 8: Create Top Campaigns sheet and move edited campaigns
+        self._create_top_campaigns_sheet(updated_sheets)
+        
         self.logger.info("Top campaigns processing complete")
         return updated_sheets
     
@@ -95,7 +98,10 @@ class TopCampaignsProcessor:
             first_col = top_sheet.columns[0]
             top_sheet = top_sheet.rename(columns={first_col: COL_TOP_ASINS})
         
-        self.logger.info(f"Top sheet created with {len(top_sheet)} ASIN entries")
+        # Add second column "Unnamed: 1" with "v" marks for all ASINs
+        top_sheet["Unnamed: 1"] = "v"
+        
+        self.logger.info(f"Top sheet created with {len(top_sheet)} ASIN entries and 2 columns")
         return top_sheet
     
     def _fill_top_column(self, campaigns_df: pd.DataFrame) -> None:
@@ -120,9 +126,24 @@ class TopCampaignsProcessor:
             return
         
         # Apply VLOOKUP logic to each campaign row
+        # Only exclude exact portfolio names from Top assignment, not patterns
+        ignored_portfolio_names = ["Pause", "Terminal", "Top Terminal"]
+        
         matches_found = 0
+        ignored_count = 0
+        
         for idx, row in campaigns_df.iterrows():
             if row[COL_ENTITY] == ENTITY_CAMPAIGN:
+                portfolio_name = str(row[COL_PORTFOLIO_NAME_INFO]) if pd.notna(row[COL_PORTFOLIO_NAME_INFO]) else ""
+                
+                # Only exclude exact portfolio names from Top assignment
+                is_ignored_exact = portfolio_name in ignored_portfolio_names
+                
+                if is_ignored_exact:
+                    # Skip Top processing for ignored campaigns - leave Top column empty
+                    ignored_count += 1
+                    continue
+                
                 asin_pa = str(row[COL_ASIN_PA]).strip() if pd.notna(row[COL_ASIN_PA]) else ""
                 
                 # Check if ASIN PA exists in Top ASINs
@@ -131,7 +152,7 @@ class TopCampaignsProcessor:
                     matches_found += 1
                 # If not found or empty, leave empty (default)
         
-        self.logger.info(f"Top column filled: {matches_found} campaigns marked with 'v'")
+        self.logger.info(f"Top column filled: {matches_found} campaigns marked with 'v', {ignored_count} campaigns ignored per Step 4")
     
     def _update_portfolio_ids(self, campaigns_df: pd.DataFrame) -> None:
         """
@@ -151,9 +172,12 @@ class TopCampaignsProcessor:
         total_updates = 0
         
         # Criteria 1: Top = "v" AND Portfolio Name does NOT contain "manual"
+        # Also exclude campaigns with ignore patterns from Portfolio ID updates
+        ignore_patterns = ["Flat", "Same", "Defense", "Offense"]
         criteria1_mask = (
             (campaigns_df[COL_TOP] == "v") &
-            (~campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("manual", na=False, case=False))
+            (~campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("manual", na=False, case=False)) &
+            (~campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("|".join(ignore_patterns), na=False, case=False))
         )
         criteria1_campaigns = campaigns_df[criteria1_mask]
         
@@ -182,3 +206,34 @@ class TopCampaignsProcessor:
         
         self.logger.info(f"Criteria 2 (Top=empty, manual): {criteria2_count} campaigns updated")
         self.logger.info(f"Total Portfolio ID updates: {total_updates} campaigns")
+    
+    def _create_top_campaigns_sheet(self, all_sheets: Dict[str, pd.DataFrame]) -> None:
+        """
+        Step 8: Create Top Campaigns sheet and move edited campaigns there.
+        
+        Per PRD specification:
+        - Create a new sheet named "Top Campaigns"
+        - Move only the rows that were edited in this step from Campaign sheet
+        - Ensure edited rows exist only in Top Campaigns, not in Campaign sheet
+        """
+        self.logger.info("Step 8: Creating Top Campaigns sheet and moving edited campaigns")
+        
+        campaigns_df = all_sheets[SHEET_CAMPAIGNS_CLEANED]
+        
+        # Find campaigns that were edited (have Operation = "update")
+        edited_campaigns_mask = (
+            (campaigns_df[COL_ENTITY] == ENTITY_CAMPAIGN) & 
+            (campaigns_df[COL_OPERATION] == OPERATION_UPDATE)
+        )
+        
+        edited_campaigns = campaigns_df[edited_campaigns_mask].copy()
+        remaining_campaigns = campaigns_df[~edited_campaigns_mask].copy()
+        
+        # Create Top Campaigns sheet with edited campaigns
+        all_sheets["Top Campaigns"] = edited_campaigns
+        
+        # Update Campaign sheet to remove edited campaigns
+        all_sheets[SHEET_CAMPAIGNS_CLEANED] = remaining_campaigns
+        
+        self.logger.info(f"Created Top Campaigns sheet with {len(edited_campaigns)} edited campaigns")
+        self.logger.info(f"Remaining Campaign sheet has {len(remaining_campaigns)} campaigns")

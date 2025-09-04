@@ -53,22 +53,21 @@ class AsinMatcher:
         return updated_sheets
     
     def _add_asin_pa_column(self, campaigns_df: pd.DataFrame, product_ad_df: pd.DataFrame) -> None:
-        """Add ASIN PA column to the right of Operation column with blue header."""
+        """Add ASIN PA column to match expected column order."""
         self.logger.info("Adding ASIN PA column with VLOOKUP logic")
         
-        # Find Operation column position
-        operation_col_idx = campaigns_df.columns.get_loc(COL_OPERATION)
+        # Expected order: Operation, Campaign ID, Ads Count, ASIN PA, Top
+        # Find Campaign ID position and place ASIN PA after Ads Count
+        campaign_id_col_idx = campaigns_df.columns.get_loc(COL_CAMPAIGN_ID)
         
-        # Insert ASIN PA column to the right of Ads Count column
-        # Per spec sequence: Operation -> Ads Count -> ASIN PA -> Top
-        # Ads Count should already be at operation_col_idx + 1 by now
+        # Ads Count should be right after Campaign ID
         ads_count_col_name = "Ads Count"
         if ads_count_col_name in campaigns_df.columns:
             ads_count_col_idx = campaigns_df.columns.get_loc(ads_count_col_name)
             asin_pa_position = ads_count_col_idx + 1  # Right after Ads Count
         else:
-            # Fallback if Ads Count not found (shouldn't happen)
-            asin_pa_position = operation_col_idx + 1  # Right after Operation
+            # Fallback: place after Campaign ID if Ads Count not found
+            asin_pa_position = campaign_id_col_idx + 1
         
         campaigns_df.insert(asin_pa_position, COL_ASIN_PA, "")
         

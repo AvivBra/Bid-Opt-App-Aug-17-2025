@@ -15,8 +15,8 @@ COL_ADS_COUNT = "Ads Count"
 # Portfolio names to ignore during processing
 IGNORED_PORTFOLIO_NAMES = ["Pause", "Terminal", "Top Terminal"]
 
-# Portfolio name patterns to delete
-DELETE_PATTERNS = ["Flat", "Same", "Defense", "Offense"]
+# Portfolio name patterns to ignore (Step 4: keep but exclude from transformations)
+DELETE_PATTERNS = ["Flat", "Same", "Defense", "Offense"]  # Keeping same name for compatibility
 
 
 class AdsCountProcessor:
@@ -61,23 +61,6 @@ class AdsCountProcessor:
         # Step 4: Delete additional rows based on portfolio patterns
         campaigns_df_final = self._filter_by_portfolio_patterns(campaigns_df_filtered)
         
-        # HOTFIX: Ensure specific problematic campaigns are filtered out
-        # These campaigns should be filtered by the regular logic but as a safeguard, explicitly remove them
-        problematic_campaigns = [
-            '519049247780568', '491600861217035', '390680909152667', '384574162607232',
-            '437536316167339', '299494021490288', '474528112331109', '474083270897360',
-            '484184823705547', '306270076990585', '409474477956811'
-        ]
-        
-        initial_count = len(campaigns_df_final)
-        campaigns_df_final = campaigns_df_final[
-            ~campaigns_df_final[COL_CAMPAIGN_ID].astype(str).isin(problematic_campaigns)
-        ]
-        hotfix_filtered = initial_count - len(campaigns_df_final)
-        
-        if hotfix_filtered > 0:
-            self.logger.info(f"HOTFIX: Filtered additional {hotfix_filtered} problematic campaigns")
-        
         # Step 5: Keep the Ads Count column in the final output (per spec requirement)
         # The Ads Count column should remain visible in the final output file
         self.logger.info("Keeping Ads Count column in final output as per spec")
@@ -88,14 +71,15 @@ class AdsCountProcessor:
         return updated_sheets
     
     def _add_ads_count_column(self, campaigns_df: pd.DataFrame, product_ad_df: pd.DataFrame) -> None:
-        """Add Ads Count column to the right of Operation column."""
+        """Add Ads Count column to the right of Campaign ID column."""
         self.logger.info("Adding Ads Count column with COUNTIFS logic")
         
-        # Find Operation column position
-        operation_col_idx = campaigns_df.columns.get_loc(COL_OPERATION)
+        # Find Campaign ID column position to match expected order
+        # Expected: Operation, Campaign ID, Ads Count, ASIN PA, Top
+        campaign_id_col_idx = campaigns_df.columns.get_loc(COL_CAMPAIGN_ID)
         
-        # Insert Ads Count column to the right of Operation
-        campaigns_df.insert(operation_col_idx + 1, COL_ADS_COUNT, 0)
+        # Insert Ads Count column to the right of Campaign ID
+        campaigns_df.insert(campaign_id_col_idx + 1, COL_ADS_COUNT, 0)
         
         # Filter Product Ad sheet to only Product Ad entities
         product_ads = product_ad_df[product_ad_df[COL_ENTITY] == ENTITY_PRODUCT_AD].copy()
@@ -130,21 +114,19 @@ class AdsCountProcessor:
         return filtered_df
     
     def _filter_by_portfolio_patterns(self, campaigns_df: pd.DataFrame) -> pd.DataFrame:
-        """Delete rows based on portfolio name patterns."""
-        self.logger.info("Filtering rows based on portfolio name patterns")
+        """Apply Step 4: Ignore rows with portfolio name patterns (keep them but exclude from transformations)."""
+        self.logger.info("Step 4: Identifying rows to ignore based on portfolio name patterns")
         
-        # Identify rows to ignore (these are never deleted)
-        ignore_mask = campaigns_df[COL_PORTFOLIO_NAME_INFO].isin(IGNORED_PORTFOLIO_NAMES)
+        # No filtering/deletion in Step 4 - campaigns with patterns are now IGNORED, not deleted
+        # Per updated specification: "מתעלמים גם מכל שורה..." (Also ignore any row...)
+        # This means keep all campaigns but mark pattern-based ones as ignored for transformations
         
-        # Identify rows to delete based on patterns (but not if they're in ignore list)
-        delete_mask = pd.Series(False, index=campaigns_df.index)
-        
+        pattern_ignore_count = 0
         for pattern in DELETE_PATTERNS:
             pattern_mask = campaigns_df[COL_PORTFOLIO_NAME_INFO].str.contains(pattern, na=False)
-            delete_mask |= (pattern_mask & (~ignore_mask))
+            pattern_ignore_count += pattern_mask.sum()
         
-        # Keep rows that are not marked for deletion
-        filtered_df = campaigns_df[~delete_mask].copy()
+        self.logger.info(f"Step 4 complete: {pattern_ignore_count} rows with patterns {DELETE_PATTERNS} will be ignored (kept but excluded from transformations)")
         
-        self.logger.info(f"Filtered {delete_mask.sum()} rows with portfolio patterns: {DELETE_PATTERNS}")
-        return filtered_df
+        # Return all campaigns - no deletion in Step 4 anymore
+        return campaigns_df.copy()

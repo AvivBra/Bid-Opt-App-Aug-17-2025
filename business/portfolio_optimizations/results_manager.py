@@ -90,6 +90,9 @@ class ResultsManager:
             "merge_time_seconds": elapsed_time,
         }
 
+        # Fix column order for Portfolios sheet to match expected file format
+        self._fix_portfolios_column_order(merged_data)
+
         self.logger.info(
             f"Merge complete: {total_rows_updated} rows, {total_cells_updated} cells updated"
         )
@@ -436,3 +439,40 @@ class ResultsManager:
         merged_data[SHEET_TERMINAL] = terminal_df
         
         self.logger.info(f"Terminal sheet created: {len(terminal_df)} rows moved, {len(campaigns_df_filtered)} rows remain in Campaign sheet")
+    
+    def _fix_portfolios_column_order(self, merged_data: Dict[str, pd.DataFrame]) -> None:
+        """
+        Fix the column order in Portfolios sheet to match expected file format.
+        
+        Expected order: Portfolio Name, Old Portfolio Name, ..., Camp Count (at end)
+        """
+        if "Portfolios" not in merged_data:
+            return
+            
+        portfolios_df = merged_data["Portfolios"]
+        
+        # Define the expected column order
+        expected_order = [
+            'Product', 'Entity', 'Operation', 'Portfolio ID', 'Portfolio Name', 
+            'Old Portfolio Name ', 'Budget Amount', 'Budget Currency Code', 
+            'Budget Policy', 'Budget Start Date', 'Budget End Date', 
+            'State (Informational only)', 'In Budget (Informational only)', 'Camp Count'
+        ]
+        
+        # Check if we have all the expected columns
+        current_columns = list(portfolios_df.columns)
+        
+        # Only reorder if we have the problematic columns (Old Portfolio Name  and Camp Count)
+        if 'Old Portfolio Name ' in current_columns and 'Camp Count' in current_columns:
+            # Filter expected_order to only include columns that actually exist
+            available_expected_columns = [col for col in expected_order if col in current_columns]
+            
+            # Add any additional columns that aren't in our expected list (to preserve them)
+            additional_columns = [col for col in current_columns if col not in expected_order]
+            final_order = available_expected_columns + additional_columns
+            
+            # Reorder the DataFrame columns
+            portfolios_df = portfolios_df[final_order]
+            merged_data["Portfolios"] = portfolios_df
+            
+            self.logger.info(f"Fixed Portfolios column order: Old Portfolio Name moved from position {current_columns.index('Old Portfolio Name ')} to position {final_order.index('Old Portfolio Name ')}")

@@ -87,8 +87,8 @@ class ExcelWriter:
             if "Sheet" in wb.sheetnames:
                 wb.remove(wb["Sheet"])
 
-            # Define expected sheet order for Portfolio Optimizer
-            expected_order = ['Portfolios', 'Product Ad', 'Campaign', 'Terminal', 'Top', 'Sheet3']
+            # Define expected sheet order for Portfolio Optimizer - Updated to match expected output
+            expected_order = ['Portfolios', 'Campaign', 'Top', 'Top Camps', 'Product Ad', 'Sheet3']
             
             # Reorder sheets according to expected order, then add any remaining sheets
             ordered_sheets = []
@@ -119,9 +119,9 @@ class ExcelWriter:
                 # Create worksheet
                 ws = wb.create_sheet(title=self._clean_sheet_name(sheet_name))
 
-                # Remove internal columns before writing
+                # Remove internal columns before writing  
                 df_to_write = df.copy()
-                internal_columns = ["_needs_highlight", "_needs_pink_highlight", "_error_type", "Camp Count", "Old Portfolio Name"]
+                internal_columns = ["_needs_highlight", "_needs_pink_highlight", "_error_type"]
                 for col in internal_columns:
                     if col in df_to_write.columns:
                         df_to_write = df_to_write.drop(columns=[col])

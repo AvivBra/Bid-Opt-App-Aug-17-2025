@@ -40,19 +40,21 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
         campaigns_df = all_sheets[SHEET_CAMPAIGNS_CLEANED].copy()
         portfolios_df = all_sheets[SHEET_PORTFOLIOS].copy()
         
-        # Step 1: Add Camp Count column to Portfolios sheet and populate for ALL rows
-        self.logger.info("PRD Step 1: Adding Camp Count column and populating for all rows")
+        # Step 1: Create Old Portfolio Name column first  
+        self.logger.info("PRD Step 1: Creating Old Portfolio Name column and backing up names for all rows")
+        if COL_OLD_PORTFOLIO_NAME not in portfolios_df.columns:
+            # Insert "Old Portfolio Name " column right after "Portfolio Name" column
+            portfolio_name_col_idx = portfolios_df.columns.get_loc(COL_PORTFOLIO_NAME)
+            portfolios_df.insert(portfolio_name_col_idx + 1, COL_OLD_PORTFOLIO_NAME, portfolios_df[COL_PORTFOLIO_NAME])
+        
+        # Step 2: Add Camp Count column at the end 
+        self.logger.info("PRD Step 2: Adding Camp Count column at the end and populating for all rows")
         if COL_CAMP_COUNT not in portfolios_df.columns:
             portfolios_df[COL_CAMP_COUNT] = 0
         
-        # Step 2: Calculate campaign counts for each portfolio using COUNTIFS logic
-        self.logger.info("PRD Step 2: Calculating campaign counts using COUNTIFS logic")
+        # Step 3: Calculate campaign counts for each portfolio using COUNTIFS logic
+        self.logger.info("PRD Step 3: Calculating campaign counts using COUNTIFS logic")
         self._calculate_campaign_counts_countifs(portfolios_df, campaigns_df)
-        
-        # Step 3: Create Old Portfolio Name column and backup original names for ALL rows
-        self.logger.info("PRD Step 3: Creating Old Portfolio Name column and backing up names for all rows")
-        if COL_OLD_PORTFOLIO_NAME not in portfolios_df.columns:
-            portfolios_df[COL_OLD_PORTFOLIO_NAME] = portfolios_df[COL_PORTFOLIO_NAME]
         
         # Step 4: Find empty portfolios and assign new numeric names
         self.logger.info("PRD Step 4: Finding empty portfolios and assigning new names")
@@ -151,13 +153,21 @@ class EmptyPortfoliosStrategy(OptimizationStrategy):
         # For each portfolio, count campaigns with matching Portfolio ID
         for idx, row in portfolios_df.iterrows():
             if row[COL_ENTITY] == ENTITY_PORTFOLIO:
-                portfolio_id = str(int(row[COL_PORTFOLIO_ID]))  # Convert to int first to remove any decimals
+                # Handle empty Portfolio ID safely
+                raw_portfolio_id = row[COL_PORTFOLIO_ID]
+                if pd.notna(raw_portfolio_id) and str(raw_portfolio_id).strip() and str(raw_portfolio_id).strip() != '':
+                    try:
+                        portfolio_id = str(int(float(raw_portfolio_id)))
+                    except (ValueError, TypeError):
+                        portfolio_id = str(raw_portfolio_id).strip()
+                else:
+                    portfolio_id = ''
                 
                 # COUNTIFS equivalent: count campaigns where Portfolio ID matches
                 # Handle float Portfolio IDs in campaigns by converting to int then string
                 matching_campaigns = campaign_entities[
                     campaign_entities[COL_PORTFOLIO_ID].apply(
-                        lambda x: str(int(float(x))) if pd.notna(x) else ''
+                        lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() and str(x).strip() != '' else ''
                     ) == portfolio_id
                 ]
                 count = len(matching_campaigns)

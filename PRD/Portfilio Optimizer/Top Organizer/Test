@@ -1,47 +1,79 @@
 # Organize Top Campaigns Integration Test Specification
 
+This tests a scenario of a user checking all 3 boxes in the Portfolio Optimization Page and uploads the following input files:
+- PRD/Portfolio Optimizer/Excel Examples/Example - Bulk 60.xlsx
+- PRD/Portfolio Optimizer/Excel Examples/Filled Template Example.xlsx
+
+**Process**
+
 ## Test-Fix Loop (Allowed Code Files)
+Test > Fix > test
+Only stop the loop for one of the following reasons:
 
-**Allowed for automatic fixes:**
-business/portfolio_optimizations/strategies/organize_top_campaigns_strategy.py
+1. You've achieved 100% success
+2. Something is clearly blocking you + You are certain that you are not able to achieve success alone. 
+3. You've tried 10 times without achieving success. 
+4. The test example is conflicting with the spec files
 
+## Stopping without achieving 100% success
+If you met one of the conditions that allow stop without success, You need to report your achievements, failures, as well as the reason that led you to stop without achieving success. 
 
-**Process:** Automatically identify and fix issues in these files, then retest until success criteria are met.
+## Reporting 100% Success
+
+Explicitly saying: I've achived 100% success since 3 criteria were met:
+- 100% Compliance with Spec (detail in 3 bullets how the changes meet the spec files)
+- Identical Output File (detail in 3 bullets how this was confirmed)
+- Real User Simulation (detail in 3 bullets the technic used)
+
+**Allowed for automatic fixes:** All files
 
 ## Test-Report (Non-Editable Files)
 
-**Not allowed for automatic fixes:**
-All the rest except from those mentioned as Allowed for automatic fixes
+**Not allowed for automatic fixes:** None - all files are editable.
 
-**Process:** Generate detailed report for user review - never modify these files.
 
 ## Success Criteria
 The test-fix loop continues until all 3 criteria are met:
 
 ### a. 100% Compliance with Spec
-100% compliance with the relevant spec in:
-PRD/Portfilio Optimizer/Top Organizer
+100% compliance with the relevant specification in:
+PRD/Portfolio Optimizer
 
 ### b. Identical Output File  
-App outcome file at the end of the simulation is identical to the example file in 
-PRD/Portfilio Optimizer/Excel Examples/Output Bulk Example for Organize Top Campaigns part1+2.xlsx
+App outcome file at the end of the simulation is identical to the example file in:
+PRD/Portfilio Optimizer/Excel Examples/Example - Output 3 checkboxes.xlsx
 
 ### c. Real User Simulation
-The test was operated by simulating a real user operation of the app via Playwright MCP according to this spec: PRD/Playwright/How to
+The test was operated by simulating a real user operation of the app via Playwright MCP according to this specification: 
+PRD/Playwright/How to.md
 
+## Final Verification Checklist
 
-ca
-  Key Requirements:
-  1. Same sheet structure (identical sheet names and order)
-  2. Same dimensions (identical rows × columns per sheet)
-  3. Same column headers (identical column names and order)
-  4. Same cell content (exact string match after standardized loading)
-  5. Exclude dynamic fields (file names with timestamps, generation dates)
+Before reporting success, verify you can check (✓) all the below:
 
-  Verification Method:
-  pd.read_excel(file, sheet_name=None, dtype=str, na_filter=False)
-  # Then cell-by-cell string comparison: str(actual_cell) == str(expected_cell)
+1. Are 100% of every single cell in the output excel file identical to the matching example file cell? ✓ / ✗ 
+2. Did I verify this with a playwright test simulating real human use? ✓ / ✗
+3. Does every change I made comply 100% with the relevant spec in PRD/Portfolio Optimizer/Top Organizer? ✓ / ✗
 
-Only if all have v - you reached 100% success. If not than keep fixing. If youmust stop - report partial success and explain what was not met. 
+### 100% Identical Definition:
 
-If you stop before 100% success - you should provide a good reason for it - eather you needed help from me, or passed 10 trials of fixing something with no success
+"Every cell value at the same row and column position contains exactly the same string representation when both files are loaded with identical data type formatting (dtype=str, na_filter=False), after excluding timestamp-based columns like file names or generation dates."
+
+**Key Requirements:**
+1. Same sheet structure (identical sheet names and order)
+2. Same dimensions (identical rows × columns per sheet)  
+3. Same column headers (identical column names and order)
+4. Same cell content (exact string match after standardized loading)
+5. Exclude dynamic fields (file names with timestamps, generation dates)
+
+**Verification Method:**
+```python
+pd.read_excel(file, sheet_name=None, dtype=str, na_filter=False)
+# Then cell-by-cell string comparison: str(actual_cell) == str(expected_cell)
+```
+
+**Success Requirement:** Only if all criteria have ✓ - you reached 100% success. If not, continue fixing.
+
+**Stopping Conditions:** If you must stop before 100% success, provide a clear reason:
+- Needed help from user
+- Exceeded 10 fix attempts with no progress

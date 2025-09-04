@@ -54,7 +54,7 @@
 - עבור השורות שלא מתעלמים מהן - מוחקים כל שורה שיצא לה ערך גבוה מ-1 בעמודה **Ads Count**
 
 ### שלב 4: מחיקת שורות נוספות
-מוחקים כל שורה שאינה בשורות להתעלמות אם היא עונה על לפחות אחד מהתנאים:
+בשלב הזה מתעלמים גם מכל שורה שעונה על הדרישות הבאות:
 - Portfolio Name (Informational only) contains "Flat"
 - Portfolio Name (Informational only) contains "Same"
 - Portfolio Name (Informational only) contains "Defense"
