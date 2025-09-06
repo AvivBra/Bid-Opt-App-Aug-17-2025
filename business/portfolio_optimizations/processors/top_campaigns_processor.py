@@ -173,7 +173,7 @@ class TopCampaignsProcessor:
         
         # Criteria 1: Top = "v" AND Portfolio Name does NOT contain "manual"
         # Also exclude campaigns with ignore patterns from Portfolio ID updates
-        ignore_patterns = ["Flat", "Same", "Defense", "Offense"]
+        ignore_patterns = ["Flat", "Same", "Defense", "Offense", "Flat15", "Flat20", "Flat25", "Flat30", "Flat40"]
         criteria1_mask = (
             (campaigns_df[COL_TOP] == "v") &
             (~campaigns_df[COL_PORTFOLIO_NAME_INFO].astype(str).str.contains("manual", na=False, case=False)) &

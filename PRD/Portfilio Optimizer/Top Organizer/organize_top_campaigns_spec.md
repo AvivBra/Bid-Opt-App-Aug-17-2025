@@ -53,7 +53,7 @@
   - Portfolio Name (Informational only) = Top Terminal
 - עבור השורות שלא מתעלמים מהן - מוחקים כל שורה שיצא לה ערך גבוה מ-1 בעמודה **Ads Count**
 
-### שלב 4: מחיקת שורות נוספות
+### שלב 4: התעלמות משורות נוספות
 בשלב הזה מתעלמים גם מכל שורה שעונה על הדרישות הבאות:
 - Portfolio Name (Informational only) contains "Flat"
 - Portfolio Name (Informational only) contains "Same"
